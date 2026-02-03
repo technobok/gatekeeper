@@ -1,0 +1,39 @@
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Members</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group in groups %}
+        <tr>
+            <td>
+                <a href="{{ url_for('admin_groups.members', name=group.name if group.name is defined else group[0]) }}">
+                    {{ group.name if group.name is defined else group[0] }}
+                </a>
+            </td>
+            <td>{{ group.description if group.description is defined else group[1] }}</td>
+            <td>{{ group.member_count if group.member_count is defined else group[2] }}</td>
+            <td>
+                <a href="{{ url_for('admin_groups.edit_form', name=group.name if group.name is defined else group[0]) }}">Edit</a>
+                {% set gname = group.name if group.name is defined else group[0] %}
+                {% if gname not in ("admin", "standard") %}
+                <button class="outline secondary"
+                        hx-post="{{ url_for('admin_groups.delete_group', name=gname) }}"
+                        hx-confirm="Are you sure you want to delete group '{{ gname }}'?"
+                        hx-target="#groups-table"
+                        style="padding: 4px 8px; margin: 0;">Delete</button>
+                {% endif %}
+                <a href="{{ url_for('admin_groups.members', name=gname) }}">Members</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">No groups found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

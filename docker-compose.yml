@@ -1,0 +1,11 @@
+services:
+  gatekeeper:
+    build: .
+    ports:
+      - "5100:5100"
+    volumes:
+      - ./instance:/app/instance
+      - ./config.ini:/app/config.ini:ro
+    environment:
+      - GATEKEEPER_ROOT=/app
+    restart: unless-stopped

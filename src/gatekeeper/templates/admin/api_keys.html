@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}API Keys - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>API Keys</h1>
+
+<form method="post" action="{{ url_for('admin_api_keys.generate') }}">
+    <fieldset role="group">
+        <input type="text" name="description" placeholder="Key description (optional)">
+        <button type="submit">Generate</button>
+    </fieldset>
+</form>
+
+<figure>
+    <table>
+        <thead>
+            <tr>
+                <th>Prefix</th>
+                <th>Description</th>
+                <th>Enabled</th>
+                <th>Created</th>
+                <th>Last Used</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key in keys %}
+            {% include "admin/api_key_row.html" %}
+            {% else %}
+            <tr>
+                <td colspan="6"><em>No API keys.</em></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</figure>
+{% endblock %}

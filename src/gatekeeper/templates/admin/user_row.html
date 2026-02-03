@@ -1,0 +1,29 @@
+<tr>
+    <td><a href="{{ url_for('admin_users.edit_form', username=user.username) }}">{{ user.username }}</a></td>
+    <td>{{ user.email }}</td>
+    <td>{{ user.fullname }}</td>
+    <td>
+        {% if user.enabled %}
+            <mark>Enabled</mark>
+        {% else %}
+            <mark class="secondary">Disabled</mark>
+        {% endif %}
+    </td>
+    <td>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button class="{{ 'secondary' if user.enabled else '' }} outline" style="padding: 4px 8px; margin: 0;"
+                    hx-post="{{ url_for('admin_users.toggle_user', username=user.username) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                {{ "Disable" if user.enabled else "Enable" }}
+            </button>
+            <a href="{{ url_for('admin_users.edit_form', username=user.username) }}"
+               role="button" class="outline" style="padding: 4px 8px; margin: 0;">Edit</a>
+            <button class="outline secondary" style="padding: 4px 8px; margin: 0;"
+                    hx-post="{{ url_for('admin_users.rotate_salt', username=user.username) }}"
+                    hx-confirm="Rotate login salt for '{{ user.username }}'? This will invalidate all their active sessions.">
+                Rotate Salt
+            </button>
+        </div>
+    </td>
+</tr>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit User" if user else "Create User" }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>{% if user %}Edit User: {{ user.username }}{% else %}Create User{% endif %}</h1>
+
+<form method="post"
+      action="{{ url_for('admin_users.edit_user', username=user.username) if user else url_for('admin_users.create_user') }}">
+    {% if not user %}
+    <label for="username">
+        Username
+        <input type="text" id="username" name="username" required autofocus
+               placeholder="e.g. DOMAIN\jsmith or jsmith">
+    </label>
+    {% endif %}
+
+    <label for="email">
+        Email
+        <input type="email" id="email" name="email" required
+               value="{{ user.email if user else '' }}"
+               placeholder="user@example.com"
+               {{ "autofocus" if user else "" }}>
+    </label>
+
+    <label for="fullname">
+        Full Name
+        <input type="text" id="fullname" name="fullname"
+               value="{{ user.fullname if user else '' }}"
+               placeholder="Jane Smith">
+    </label>
+
+    <fieldset>
+        <label>
+            <input type="checkbox" name="enabled" role="switch"
+                   {{ "checked" if (user.enabled if user else true) }}>
+            Enabled
+        </label>
+    </fieldset>
+
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit">{{ "Save" if user else "Create" }}</button>
+        <a href="{{ url_for('admin_users.list_users') }}" role="button" class="outline secondary">Cancel</a>
+    </div>
+</form>
+
+{% if user %}
+<hr>
+<p><a href="{{ url_for('admin_users.user_groups', username=user.username) }}">View group memberships</a></p>
+{% endif %}
+{% endblock %}

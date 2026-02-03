@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Groups - Gatekeeper{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Groups</h1>
+    <a href="{{ url_for('admin_groups.create_form') }}" role="button">Create Group</a>
+</div>
+
+<div id="groups-table">
+    {% include "admin/groups_table.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% if members %}
+<table>
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for username in members %}
+        <tr>
+            <td>{{ username }}</td>
+            <td>
+                <button class="outline secondary"
+                        hx-post="{{ url_for('admin_groups.remove_member', name=group.name, username=username) }}"
+                        hx-target="#members-list"
+                        hx-swap="innerHTML"
+                        hx-confirm="Remove '{{ username }}' from group '{{ group.name }}'?"
+                        style="padding: 4px 8px; margin: 0;">Remove</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No members.</p>
+{% endif %}

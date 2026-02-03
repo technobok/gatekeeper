@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Administration - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Administration</h1>
+
+<div class="grid">
+    <a href="{{ url_for('admin_users.list_users') }}" style="text-decoration: none; color: inherit;">
+        <article>
+            <header>Users</header>
+            <p>Manage user accounts, enable/disable users, and rotate login salts.</p>
+        </article>
+    </a>
+    <a href="{{ url_for('admin_groups.list_groups') }}" style="text-decoration: none; color: inherit;">
+        <article>
+            <header>Groups</header>
+            <p>Manage groups, memberships, and access control.</p>
+        </article>
+    </a>
+    <a href="{{ url_for('admin_api_keys.index') }}" style="text-decoration: none; color: inherit;">
+        <article>
+            <header>API Keys</header>
+            <p>Generate, toggle, and delete API keys for service authentication.</p>
+        </article>
+    </a>
+    <a href="{{ url_for('admin_system.index') }}" style="text-decoration: none; color: inherit;">
+        <article>
+            <header>System</header>
+            <p>System dashboard, backups, salt rotation, and audit log.</p>
+        </article>
+    </a>
+</div>
+{% endblock %}

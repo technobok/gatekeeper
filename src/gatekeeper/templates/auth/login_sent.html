@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Check Your Email - Gatekeeper{% endblock %}
+
+{% block content %}
+<article style="max-width: 400px; margin: 2rem auto;">
+    <header>
+        <h2>Check Your Email</h2>
+    </header>
+    <p>A login link has been sent to <strong>{{ email }}</strong>.</p>
+    <p>Click the link in the email to sign in. The link will expire shortly.</p>
+    <p><small>Didn't receive it? Check your spam folder or <a href="{{ url_for('auth.login') }}">try again</a>.</small></p>
+</article>
+{% endblock %}

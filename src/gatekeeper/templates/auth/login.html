@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Login - Gatekeeper{% endblock %}
+
+{% block content %}
+<article style="max-width: 400px; margin: 2rem auto;">
+    <header>
+        <h2>Sign In</h2>
+    </header>
+    <form method="post" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="next" value="{{ next_url | default('/', true) }}">
+        <label for="identifier">
+            Email or Username
+            <input type="text" id="identifier" name="identifier"
+                   value="{{ identifier | default('', true) }}"
+                   placeholder="user@example.com or DOMAIN\username"
+                   required autofocus>
+        </label>
+        <small>Enter your email address, domain\username, or username.</small>
+        <button type="submit">Send Login Link</button>
+    </form>
+</article>
+{% endblock %}

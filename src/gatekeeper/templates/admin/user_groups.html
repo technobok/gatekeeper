@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Groups for {{ user.username }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Groups for: {{ user.username }}</h1>
+
+{% if groups %}
+<table>
+    <thead>
+        <tr>
+            <th>Group Name</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for group_name in groups %}
+        <tr>
+            <td><a href="{{ url_for('admin_groups.members', name=group_name) }}">{{ group_name }}</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No group memberships.</p>
+{% endif %}
+
+<a href="{{ url_for('admin_users.list_users') }}" role="button" class="outline secondary">Back to Users</a>
+{% endblock %}

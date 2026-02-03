@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Gatekeeper{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/pico.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <nav class="container-fluid">
+        <ul>
+            <li><strong>Gatekeeper</strong></li>
+        </ul>
+        {% if g.user %}
+        <ul>
+            <li><a href="{{ url_for('admin_users.list_users') }}">Users</a></li>
+            <li><a href="{{ url_for('admin_groups.list_groups') }}">Groups</a></li>
+            <li><a href="{{ url_for('admin_api_keys.index') }}">API Keys</a></li>
+            <li><a href="{{ url_for('admin_system.index') }}">System</a></li>
+            <li>
+                <small>{{ g.user.username }}</small>
+                <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline; margin:0;">
+                    <button type="submit" class="outline secondary" style="padding: 4px 8px; margin: 0;">Logout</button>
+                </form>
+            </li>
+        </ul>
+        {% endif %}
+    </nav>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <article class="flash-{{ category }}">
+            {{ message }}
+        </article>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='vendor/htmx.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

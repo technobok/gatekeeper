@@ -1,0 +1,45 @@
+[server]
+SECRET_KEY = change-this-to-a-random-string
+DEBUG = false
+# Production settings (make run)
+HOST = 0.0.0.0
+PORT = 5100
+# Development settings (make rundev)
+DEV_HOST = 127.0.0.1
+DEV_PORT = 5100
+
+[database]
+PATH = instance/gatekeeper.sqlite3
+
+[mail]
+SMTP_SERVER = smtp.example.com
+SMTP_PORT = 587
+SMTP_USE_TLS = true
+SMTP_USERNAME =
+SMTP_PASSWORD =
+MAIL_SENDER = noreply@example.com
+
+[auth]
+MAGIC_LINK_EXPIRY_SECONDS = 3600
+ADMIN_USERNAMES = admin@example.com
+
+# Enable when running behind a reverse proxy (Caddy, nginx, etc.)
+#[proxy]
+#X_FORWARDED_FOR = 1
+#X_FORWARDED_PROTO = 1
+#X_FORWARDED_HOST = 1
+#X_FORWARDED_PREFIX = 0
+
+# [ldap]
+# ENABLED = true
+# DOMAINS = CORP, DEVLAB
+#
+# [ldap.CORP]
+# SERVER = ldap://dc01.corp.example.com
+# BASE_DN = DC=corp,DC=example,DC=com
+# BIND_DN = CN=svc_gatekeeper,OU=Service,DC=corp,DC=example,DC=com
+# BIND_PASSWORD = secret
+# USER_FILTER = (&(objectClass=user)(sAMAccountName={username}))
+# EMAIL_ATTR = mail
+# FULLNAME_ATTR = displayName
+# USERNAME_ATTR = sAMAccountName

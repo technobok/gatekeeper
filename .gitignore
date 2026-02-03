@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv*/
+instance/gatekeeper.sqlite3
+config.ini
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+.ruff_cache/
+.ty_cache/

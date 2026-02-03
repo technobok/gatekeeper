@@ -1,0 +1,57 @@
+{% set next_order = "desc" if order == "asc" else "asc" %}
+{% macro sort_link(column, label) %}
+<a href="#"
+   hx-get="{{ url_for('admin_users.list_users', sort=column, order=next_order if sort == column else 'asc', search=search, per_page=per_page) }}"
+   hx-target="#users-table">
+    {{ label }}
+    {% if sort == column %}
+        {{ "&#9650;" if order == "asc" else "&#9660;" }}
+    {% endif %}
+</a>
+{% endmacro %}
+
+<table>
+    <thead>
+        <tr>
+            <th>{{ sort_link("username", "Username") }}</th>
+            <th>{{ sort_link("email", "Email") }}</th>
+            <th>{{ sort_link("fullname", "Full Name") }}</th>
+            <th>{{ sort_link("enabled", "Enabled") }}</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+            {% include "admin/user_row.html" %}
+        {% else %}
+        <tr>
+            <td colspan="5">No users found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% set total_pages = (total + per_page - 1) // per_page %}
+{% if total_pages > 1 %}
+<nav style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+        {% if page > 1 %}
+        <a href="#" role="button" class="outline secondary"
+           hx-get="{{ url_for('admin_users.list_users', page=page - 1, sort=sort, order=order, search=search, per_page=per_page) }}"
+           hx-target="#users-table">&laquo; Previous</a>
+        {% endif %}
+    </div>
+    <small>Page {{ page }} of {{ total_pages }} ({{ total }} users)</small>
+    <div>
+        {% if page < total_pages %}
+        <a href="#" role="button" class="outline secondary"
+           hx-get="{{ url_for('admin_users.list_users', page=page + 1, sort=sort, order=order, search=search, per_page=per_page) }}"
+           hx-target="#users-table">Next &raquo;</a>
+        {% endif %}
+    </div>
+</nav>
+{% else %}
+<nav>
+    <small>{{ total }} user{{ "s" if total != 1 }}</small>
+</nav>
+{% endif %}

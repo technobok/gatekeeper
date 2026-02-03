@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Users - Gatekeeper{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Users</h1>
+    <a href="{{ url_for('admin_users.create_form') }}" role="button">Create User</a>
+</div>
+
+<form role="search">
+    <input type="search" name="search" placeholder="Search users..."
+           value="{{ search }}"
+           hx-get="{{ url_for('admin_users.list_users') }}"
+           hx-trigger="input changed delay:300ms"
+           hx-target="#users-table"
+           hx-include="this">
+</form>
+
+<div id="users-table">
+    {% include "admin/users_table.html" %}
+</div>
+{% endblock %}

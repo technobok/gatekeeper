@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Members of {{ group.name }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Members of: {{ group.name }}</h1>
+
+<form hx-post="{{ url_for('admin_groups.add_member', name=group.name) }}"
+      hx-target="#members-list"
+      hx-swap="innerHTML"
+      style="display: flex; gap: 0.5rem; align-items: flex-end; margin-bottom: 1rem;">
+    <label for="username" style="flex: 1; margin-bottom: 0;">
+        Add member
+        <input type="text" id="username" name="username" placeholder="Username" required>
+    </label>
+    <button type="submit" style="margin-bottom: 0;">Add</button>
+</form>
+
+<div id="members-list">
+    {% include "admin/group_members_list.html" %}
+</div>
+
+<hr>
+
+<h2>Copy memberships from user</h2>
+<form method="post" style="max-width: 500px;">
+    <label for="source_username">
+        Source username
+        <input type="text" id="source_username" name="source_username" placeholder="Copy from this user" required>
+    </label>
+    <label for="target_username">
+        Target username
+        <input type="text" id="target_username" name="target_username" placeholder="Copy to this user" required>
+    </label>
+    <button type="submit" formaction="" id="copy-btn">Copy</button>
+</form>
+
+<script>
+document.getElementById("copy-btn").addEventListener("click", function(e) {
+    var source = document.getElementById("source_username").value.trim();
+    var target = document.getElementById("target_username").value.trim();
+    if (!source || !target) return;
+    this.closest("form").action = "{{ url_for('admin_groups.copy_memberships', name=group.name, source_username='__SRC__') }}".replace("__SRC__", encodeURIComponent(source));
+    document.querySelector("input[name='target_username']").value = target;
+});
+</script>
+
+<a href="{{ url_for('admin_groups.list_groups') }}">Back to Groups</a>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit Group" if group else "Create Group" }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>{% if group %}Edit Group: {{ group.name }}{% else %}Create Group{% endif %}</h1>
+
+<form method="post"
+      action="{{ url_for('admin_groups.edit_group', name=group.name) if group else url_for('admin_groups.create_group') }}">
+    {% if not group %}
+    <label for="name">
+        Name
+        <input type="text" id="name" name="name" required autofocus>
+    </label>
+    {% endif %}
+
+    <label for="description">
+        Description
+        <textarea id="description" name="description" rows="3">{{ group.description if group else '' }}</textarea>
+    </label>
+
+    <div style="display: flex; gap: 0.5rem;">
+        <button type="submit">{{ "Save" if group else "Create" }}</button>
+        <a href="{{ url_for('admin_groups.list_groups') }}" role="button" class="outline secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,24 @@
+<tr>
+    <td><code>{{ key.key_prefix }}</code></td>
+    <td>{{ key.description }}</td>
+    <td>{% if key.enabled %}Enabled{% else %}Disabled{% endif %}</td>
+    <td>{{ key.created_at | localdate }}</td>
+    <td>{{ key.last_used_at | localdate or "Never" }}</td>
+    <td>
+        <div role="group">
+            <button class="outline{% if key.enabled %} secondary{% endif %}"
+                    hx-post="{{ url_for('admin_api_keys.toggle', key_id=key.id) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                {% if key.enabled %}Disable{% else %}Enable{% endif %}
+            </button>
+            <button class="outline contrast"
+                    hx-post="{{ url_for('admin_api_keys.delete', key_id=key.id) }}"
+                    hx-confirm="Delete this API key?"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML">
+                Delete
+            </button>
+        </div>
+    </td>
+</tr>
