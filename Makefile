@@ -1,7 +1,7 @@
 .PHONY: help sync install init-db run rundev check clean
 
 SHELL := /bin/bash
-VENV_DIR := .venv_docker
+VENV_DIR := $(or $(VIRTUAL_ENV),.venv)
 PYTHON := $(VENV_DIR)/bin/python
 FLASK := $(VENV_DIR)/bin/flask
 RUFF := $(VENV_DIR)/bin/ruff
