@@ -20,4 +20,4 @@ EXPOSE 5100
 
 ENV GATEKEEPER_ROOT=/app
 
-CMD ["python", "wsgi.py"]
+CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:5100", "--workers", "2", "--preload"]
