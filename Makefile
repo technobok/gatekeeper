@@ -30,7 +30,7 @@ init-db:
 	@$(FLASK) --app wsgi init-db
 
 import-users:
-	@$(FLASK) --app wsgi import-users $(FILE)
+	@$(FLASK) --app wsgi import-users $(or $(FILE),$(file))
 
 run:
 	@$(GUNICORN) wsgi:app --bind 0.0.0.0:5100 --workers 2 --preload
