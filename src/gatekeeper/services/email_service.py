@@ -8,6 +8,14 @@ from email.mime.text import MIMEText
 from flask import current_app
 
 
+def _try_login(server: smtplib.SMTP, username: str | None, password: str | None) -> None:
+    """Attempt SMTP login only if credentials are provided and the server supports AUTH."""
+    if not username or not password:
+        return
+    if server.has_extn("auth"):
+        server.login(username, password)
+
+
 def send_email(to_email: str, subject: str, body_text: str, body_html: str | None = None) -> bool:
     """Send an email via SMTP. Returns True if sent successfully."""
     smtp_server = current_app.config.get("SMTP_SERVER")
@@ -34,16 +42,14 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str | Non
         if smtp_port == 465:
             context = ssl.create_default_context()
             with smtplib.SMTP_SSL(smtp_server, smtp_port, context=context) as server:
-                if smtp_username and smtp_password:
-                    server.login(smtp_username, smtp_password)
+                _try_login(server, smtp_username, smtp_password)
                 server.sendmail(mail_sender, to_email, msg.as_string())
         else:
             with smtplib.SMTP(smtp_server, smtp_port) as server:
                 if smtp_use_tls:
                     context = ssl.create_default_context()
                     server.starttls(context=context)
-                if smtp_username and smtp_password:
-                    server.login(smtp_username, smtp_password)
+                _try_login(server, smtp_username, smtp_password)
                 server.sendmail(mail_sender, to_email, msg.as_string())
 
         current_app.logger.info(f"Email sent to {to_email}: {subject}")
