@@ -23,5 +23,5 @@
 <p>No group memberships.</p>
 {% endif %}
 
-<a href="{{ url_for('admin_users.list_users') }}" role="button" class="outline secondary">Back to Users</a>
+<button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_users.list_users') }}'">Back to Users</button>
 {% endblock %}

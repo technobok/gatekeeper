@@ -38,7 +38,7 @@
 
     <div style="display: flex; gap: 1rem; align-items: center;">
         <button type="submit">{{ "Save" if user else "Create" }}</button>
-        <a href="{{ url_for('admin_users.list_users') }}" role="button" class="outline secondary">Cancel</a>
+        <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_users.list_users') }}'">Cancel</button>
     </div>
 </form>
 

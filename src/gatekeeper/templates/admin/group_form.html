@@ -20,7 +20,7 @@
 
     <div style="display: flex; gap: 0.5rem;">
         <button type="submit">{{ "Save" if group else "Create" }}</button>
-        <a href="{{ url_for('admin_groups.list_groups') }}" role="button" class="outline secondary">Cancel</a>
+        <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_groups.list_groups') }}'">Cancel</button>
     </div>
 </form>
 {% endblock %}

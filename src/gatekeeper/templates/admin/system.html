@@ -27,8 +27,8 @@
             Rotate App Salt
         </button>
     </form>
-    <a href="{{ url_for('admin_system.backup') }}" role="button" class="outline">Download Backup</a>
-    <a href="{{ url_for('admin_system.audit_log') }}" role="button" class="outline">View Audit Log</a>
+    <button type="button" class="outline" onclick="location.href='{{ url_for('admin_system.backup') }}'">Download Backup</button>
+    <button type="button" class="outline" onclick="location.href='{{ url_for('admin_system.audit_log') }}'">View Audit Log</button>
 </div>
 
 <h2>Recent Activity</h2>

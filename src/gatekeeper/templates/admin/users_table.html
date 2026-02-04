@@ -36,17 +36,17 @@
 <nav style="display: flex; justify-content: space-between; align-items: center;">
     <div>
         {% if page > 1 %}
-        <a href="#" role="button" class="outline secondary"
+        <button type="button" class="outline secondary"
            hx-get="{{ url_for('admin_users.list_users', page=page - 1, sort=sort, order=order, search=search, per_page=per_page) }}"
-           hx-target="#users-table">&laquo; Previous</a>
+           hx-target="#users-table">&laquo; Previous</button>
         {% endif %}
     </div>
     <small>Page {{ page }} of {{ total_pages }} ({{ total }} users)</small>
     <div>
         {% if page < total_pages %}
-        <a href="#" role="button" class="outline secondary"
+        <button type="button" class="outline secondary"
            hx-get="{{ url_for('admin_users.list_users', page=page + 1, sort=sort, order=order, search=search, per_page=per_page) }}"
-           hx-target="#users-table">Next &raquo;</a>
+           hx-target="#users-table">Next &raquo;</button>
         {% endif %}
     </div>
 </nav>

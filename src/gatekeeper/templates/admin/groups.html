@@ -4,7 +4,7 @@
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center;">
     <h1>Groups</h1>
-    <a href="{{ url_for('admin_groups.create_form') }}" role="button">Create Group</a>
+    <button type="button" onclick="location.href='{{ url_for('admin_groups.create_form') }}'">Create Group</button>
 </div>
 
 <div id="groups-table">
