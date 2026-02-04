@@ -157,7 +157,8 @@ def edit_form(username: str):
     user = User.get(username)
     if user is None:
         abort(404)
-    return render_template("admin/user_form.html", user=user)
+    groups = Group.get_groups_for_user(username)
+    return render_template("admin/user_form.html", user=user, groups=groups)
 
 
 @bp.route("/<path:username>/edit", methods=["POST"])

@@ -44,6 +44,10 @@
 
 {% if user %}
 <hr>
-<p><a href="{{ url_for('admin_users.user_groups', username=user.username) }}">View group memberships</a></p>
+<h2>Groups</h2>
+<p>
+    {% for grp in groups %}<mark style="margin-right: 0.25rem;">{{ grp }}</mark>{% else %}None{% endfor %}
+</p>
+<button type="button" class="outline" onclick="location.href='{{ url_for('admin_users.user_groups', username=user.username) }}'">Edit group memberships...</button>
 {% endif %}
 {% endblock %}
