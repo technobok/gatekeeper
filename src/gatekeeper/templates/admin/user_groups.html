@@ -1,27 +1,68 @@
 {% extends "base.html" %}
 {% block title %}Groups for {{ user.username }} - Gatekeeper{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/tom-select.min.css') }}">
+{% endblock %}
+
 {% block content %}
 <h1>Groups for: {{ user.username }}</h1>
 
-{% if groups %}
-<table>
-    <thead>
-        <tr>
-            <th>Group Name</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for group_name in groups %}
-        <tr>
-            <td><a href="{{ url_for('admin_groups.members', name=group_name) }}">{{ group_name }}</a></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>No group memberships.</p>
-{% endif %}
+<form hx-post="{{ url_for('admin_users.add_user_group', username=user.username) }}"
+      hx-target="#groups-list"
+      hx-swap="innerHTML"
+      style="max-width: 500px;">
+    <label for="add-group-select">
+        Add to group
+        <select id="add-group-select" name="group_name" required placeholder="Select group..."></select>
+    </label>
+    <button type="submit">Add</button>
+</form>
+
+<div id="groups-list">
+    {% include "admin/user_groups_list.html" %}
+</div>
 
 <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_users.list_users') }}'">Back to Users</button>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/tom-select.min.js') }}"></script>
+<script>
+(function() {
+    var searchUrl = "{{ url_for('admin_users.search_groups') }}";
+
+    var renderOption = function(data, escape) {
+        var label = escape(data.text);
+        if (data.description) {
+            label += '<small class="user-email"> (' + escape(data.description) + ')</small>';
+        }
+        return '<div>' + label + '</div>';
+    };
+
+    var renderItem = function(data, escape) {
+        return '<div>' + escape(data.text) + '</div>';
+    };
+
+    var addSelect = new TomSelect('#add-group-select', {
+        valueField: 'value',
+        labelField: 'text',
+        searchField: ['text', 'description'],
+        maxItems: 1,
+        loadThrottle: 200,
+        preload: 'focus',
+        load: function(query, callback) {
+            fetch(searchUrl + '?q=' + encodeURIComponent(query))
+                .then(function(r) { return r.json(); })
+                .then(function(json) { callback(json); })
+                .catch(function() { callback(); });
+        },
+        render: { option: renderOption, item: renderItem }
+    });
+
+    document.getElementById('groups-list').addEventListener('htmx:afterSwap', function() {
+        addSelect.clear();
+    });
+})();
+</script>
 {% endblock %}

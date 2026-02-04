@@ -140,7 +140,16 @@ def members(name: str):
         abort(404)
 
     member_names = group.get_members()
-    return render_template("admin/group_members.html", group=group, members=member_names)
+    member_users = [User.get(u) for u in member_names]
+    member_users = [u for u in member_users if u is not None]
+    return render_template("admin/group_members.html", group=group, members=member_users)
+
+
+def _get_member_users(group: Group) -> list[User]:
+    """Get full User objects for all members of a group."""
+    member_names = group.get_members()
+    users = [User.get(u) for u in member_names]
+    return [u for u in users if u is not None]
 
 
 @bp.route("/<name>/members", methods=["POST"])
@@ -162,9 +171,8 @@ def add_member(name: str):
         _audit_log("member_added", f"{name}/{username}")
         flash(f"Added '{username}' to group '{name}'.", "success")
 
-    member_names = group.get_members()
     if _is_htmx():
-        return render_template("admin/group_members_list.html", group=group, members=member_names)
+        return render_template("admin/group_members_list.html", group=group, members=_get_member_users(group))
     return redirect(url_for("admin_groups.members", name=name))
 
 
@@ -182,9 +190,8 @@ def remove_member(name: str, username: str):
     else:
         flash(f"User '{username}' is not a member of '{name}'.", "error")
 
-    member_names = group.get_members()
     if _is_htmx():
-        return render_template("admin/group_members_list.html", group=group, members=member_names)
+        return render_template("admin/group_members_list.html", group=group, members=_get_member_users(group))
     return redirect(url_for("admin_groups.members", name=name))
 
 

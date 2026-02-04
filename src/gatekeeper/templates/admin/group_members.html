@@ -10,11 +10,13 @@
 
 <form hx-post="{{ url_for('admin_groups.add_member', name=group.name) }}"
       hx-target="#members-list"
-      hx-swap="innerHTML">
-    <fieldset role="group">
-        <select id="add-member-select" name="username" required placeholder="Search users..."></select>
-        <button type="submit">Add</button>
-    </fieldset>
+      hx-swap="innerHTML"
+      style="max-width: 500px;">
+    <label for="add-member-select">
+        Add member
+        <select id="add-member-select" name="username" required placeholder="Select user to add to {{ group.name }}..."></select>
+    </label>
+    <button type="submit">Add</button>
 </form>
 
 <div id="members-list">

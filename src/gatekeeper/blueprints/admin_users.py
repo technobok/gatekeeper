@@ -1,6 +1,6 @@
 """Admin blueprint for user management."""
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -232,6 +232,80 @@ def user_groups(username: str):
     if user is None:
         abort(404)
 
-    groups = Group.get_groups_for_user(username)
+    group_names = Group.get_groups_for_user(username)
+    groups = [Group.get(name) for name in group_names]
+    groups = [grp for grp in groups if grp is not None]
 
     return render_template("admin/user_groups.html", user=user, groups=groups)
+
+
+@bp.route("/<path:username>/groups/add", methods=["POST"])
+@admin_required
+def add_user_group(username: str):
+    """Add user to a group."""
+    user = User.get(username)
+    if user is None:
+        abort(404)
+
+    group_name = request.form.get("group_name", "").strip()
+    if not group_name:
+        flash("Group name is required.", "error")
+    else:
+        group = Group.get(group_name)
+        if group is None:
+            flash(f"Group '{group_name}' not found.", "error")
+        elif not group.add_member(username):
+            flash(f"User '{username}' is already a member of '{group_name}'.", "error")
+        else:
+            _audit_log("member_added", f"{group_name}/{username}")
+            flash(f"Added '{username}' to group '{group_name}'.", "success")
+
+    if _is_htmx():
+        group_names = Group.get_groups_for_user(username)
+        groups = [Group.get(name) for name in group_names]
+        groups = [grp for grp in groups if grp is not None]
+        return render_template("admin/user_groups_list.html", user=user, groups=groups)
+    return redirect(url_for("admin_users.user_groups", username=username))
+
+
+@bp.route("/<path:username>/groups/<group_name>/remove", methods=["POST"])
+@admin_required
+def remove_user_group(username: str, group_name: str):
+    """Remove user from a group."""
+    user = User.get(username)
+    if user is None:
+        abort(404)
+
+    group = Group.get(group_name)
+    if group and group.remove_member(username):
+        _audit_log("member_removed", f"{group_name}/{username}")
+        flash(f"Removed '{username}' from group '{group_name}'.", "success")
+    else:
+        flash(f"User '{username}' is not a member of '{group_name}'.", "error")
+
+    if _is_htmx():
+        group_names = Group.get_groups_for_user(username)
+        groups = [Group.get(name) for name in group_names]
+        groups = [grp for grp in groups if grp is not None]
+        return render_template("admin/user_groups_list.html", user=user, groups=groups)
+    return redirect(url_for("admin_users.user_groups", username=username))
+
+
+@bp.route("/groups/search")
+@admin_required
+def search_groups():
+    """Search groups for tom-select typeahead (returns JSON)."""
+    query = request.args.get("q", "").strip().lower()
+    all_groups = Group.get_all()
+    results = []
+    for grp in all_groups:
+        if query and query not in grp.name.lower() and query not in grp.description.lower():
+            continue
+        results.append({
+            "value": grp.name,
+            "text": grp.name,
+            "description": grp.description,
+        })
+        if len(results) >= 30:
+            break
+    return jsonify(results)

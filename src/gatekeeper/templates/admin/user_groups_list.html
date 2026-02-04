@@ -1,23 +1,21 @@
-{% if members %}
+{% if groups %}
 <table>
     <thead>
         <tr>
-            <th>Username</th>
-            <th>Full Name</th>
-            <th>Email</th>
+            <th>Group Name</th>
+            <th>Description</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
-        {% for user in members %}
+        {% for group in groups %}
         <tr>
-            <td>{{ user.username }}</td>
-            <td>{{ user.fullname }}</td>
-            <td>{{ user.email }}</td>
+            <td><a href="{{ url_for('admin_groups.members', name=group.name) }}">{{ group.name }}</a></td>
+            <td>{{ group.description }}</td>
             <td>
                 <button class="outline secondary"
-                        hx-post="{{ url_for('admin_groups.remove_member', name=group.name, username=user.username) }}"
-                        hx-target="#members-list"
+                        hx-post="{{ url_for('admin_users.remove_user_group', username=user.username, group_name=group.name) }}"
+                        hx-target="#groups-list"
                         hx-swap="innerHTML"
                         hx-confirm="Remove '{{ user.username }}' from group '{{ group.name }}'?"
                         style="padding: 4px 8px; margin: 0;">Remove</button>
@@ -27,5 +25,5 @@
     </tbody>
 </table>
 {% else %}
-<p>No members.</p>
+<p>No group memberships.</p>
 {% endif %}
