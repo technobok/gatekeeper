@@ -121,13 +121,14 @@ class User:
         now = datetime.now(UTC).isoformat()
 
         with transaction() as cursor:
-            cursor.execute(
-                "UPDATE user SET username = ?, updated_at = ? WHERE username = ?",
-                (new_username, now, self.username),
-            )
+            cursor.execute("PRAGMA defer_foreign_keys = ON;")
             cursor.execute(
                 "UPDATE group_user SET username = ? WHERE username = ?",
                 (new_username, self.username),
+            )
+            cursor.execute(
+                "UPDATE user SET username = ?, updated_at = ? WHERE username = ?",
+                (new_username, now, self.username),
             )
             cursor.execute(
                 "UPDATE audit_log SET actor = ? WHERE actor = ?",
