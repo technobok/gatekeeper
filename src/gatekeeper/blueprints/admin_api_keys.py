@@ -81,5 +81,8 @@ def delete(key_id: int):
     api_key.delete()
     _audit_log("api_key_deleted", key_id_str)
 
+    if _is_htmx():
+        return "", 200
+
     flash("API key deleted.", "success")
     return redirect(url_for("admin_api_keys.index"))
