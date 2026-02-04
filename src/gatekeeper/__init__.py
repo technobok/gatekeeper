@@ -5,6 +5,7 @@ import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import click
 from flask import Flask
@@ -99,6 +100,16 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(admin_system.bp)
 
     # Jinja filters
+    def _get_user_timezone() -> ZoneInfo:
+        """Get user's timezone from request header or cookie."""
+        from flask import request
+
+        tz_name = request.headers.get("X-Timezone") or request.cookies.get("tz") or "UTC"
+        try:
+            return ZoneInfo(tz_name)
+        except Exception:
+            return ZoneInfo("UTC")
+
     @app.template_filter("localdate")
     def localdate_filter(iso_string: str | None) -> str:
         if not iso_string:
@@ -107,7 +118,9 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             dt = datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
-            return dt.strftime("%b %d, %Y")
+            user_tz = _get_user_timezone()
+            local_dt = dt.astimezone(user_tz)
+            return local_dt.strftime("%b %d, %Y")
         except Exception:
             return iso_string[:10] if iso_string else ""
 
@@ -119,9 +132,12 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             dt = datetime.fromisoformat(iso_string.replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
-            return dt.strftime("%b %d, %Y %H:%M UTC")
+            user_tz = _get_user_timezone()
+            local_dt = dt.astimezone(user_tz)
+            tz_abbr = local_dt.strftime("%Z")
+            return local_dt.strftime(f"%b %d, %Y %H:%M {tz_abbr}")
         except Exception:
-            return iso_string[:19] if iso_string else ""
+            return iso_string[:16].replace("T", " ") if iso_string else ""
 
     @app.template_filter("tojson_pretty")
     def tojson_pretty_filter(value: Any) -> str:
