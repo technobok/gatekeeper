@@ -2,7 +2,10 @@
 {% block title %}Audit Log - Gatekeeper{% endblock %}
 
 {% block content %}
-<h1>Audit Log</h1>
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Audit Log</h1>
+    <button type="button" class="secondary outline" onclick="location.href='{{ url_for('admin_system.audit_log_export') }}'">Export</button>
+</div>
 
 <p><small>Showing page {{ page }} of {{ total_pages }} ({{ total }} entries)</small></p>
 

@@ -116,7 +116,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 db.execute(
                     "INSERT INTO audit_log (timestamp, actor, action, target, details) "
                     "VALUES (?, ?, ?, ?, ?)",
-                    (now, "import-users", "user_created", username, f"email={email}, fullname={fullname}"),
+                    (
+                        now,
+                        "import-users",
+                        "user_created",
+                        username,
+                        f"email={email}, fullname={fullname}",
+                    ),
                 )
                 click.echo(f"Created: {username}")
                 created += 1

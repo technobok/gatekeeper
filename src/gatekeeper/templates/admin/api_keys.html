@@ -2,7 +2,10 @@
 {% block title %}API Keys - Gatekeeper{% endblock %}
 
 {% block content %}
-<h1>API Keys</h1>
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>API Keys</h1>
+    <button type="button" class="secondary outline" onclick="location.href='{{ url_for('admin_api_keys.export') }}'">Export</button>
+</div>
 
 <form method="post" action="{{ url_for('admin_api_keys.generate') }}">
     <fieldset role="group">

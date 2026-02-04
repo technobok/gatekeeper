@@ -21,6 +21,7 @@ from gatekeeper.models.api_key import ApiKey
 from gatekeeper.models.app_setting import AppSetting
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
+from gatekeeper.services.export import write_xlsx
 
 bp = Blueprint("admin_system", __name__, url_prefix="/admin/system")
 
@@ -102,6 +103,21 @@ def backup():
         as_attachment=True,
         download_name="gatekeeper_backup.sqlite3",
     )
+
+
+@bp.route("/audit-log/export")
+@admin_required
+def audit_log_export():
+    """Export full audit log as XLSX."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT timestamp, actor, action, target, details FROM audit_log ORDER BY id DESC"
+    ).fetchall()
+    headers = ["Timestamp", "Actor", "Action", "Target", "Details"]
+    data = [[r[0], r[1] or "", r[2], r[3] or "", r[4] or ""] for r in rows]
+    path = write_xlsx(headers, data, "audit_log.xlsx")
+    _audit_log("audit_log_exported", details=f"{len(data)} entries exported")
+    return send_file(path, as_attachment=True, download_name="audit_log.xlsx")
 
 
 @bp.route("/audit-log")

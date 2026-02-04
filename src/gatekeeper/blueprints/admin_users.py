@@ -1,11 +1,23 @@
 """Admin blueprint for user management."""
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
+from gatekeeper.services.export import write_xlsx
 
 bp = Blueprint("admin_users", __name__, url_prefix="/admin/users")
 
@@ -113,6 +125,34 @@ def list_users():
     return render_template("admin/users.html", **context)
 
 
+@bp.route("/export")
+@admin_required
+def export():
+    """Export all users as XLSX."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT username, email, fullname, enabled, created_at, updated_at FROM user ORDER BY username"
+    ).fetchall()
+
+    # Build username -> groups mapping
+    all_groups: dict[str, list[str]] = {}
+    group_rows = db.execute(
+        "SELECT username, group_name FROM group_user ORDER BY group_name"
+    ).fetchall()
+    for gr in group_rows:
+        all_groups.setdefault(gr[0], []).append(gr[1])
+
+    headers = ["Username", "Email", "Full Name", "Groups", "Enabled", "Created", "Updated"]
+    data = [
+        [r[0], r[1], r[2], ", ".join(all_groups.get(r[0], [])), "Yes" if r[3] else "No", r[4], r[5]]
+        for r in rows
+    ]
+
+    path = write_xlsx(headers, data, "users.xlsx")
+    _audit_log("users_exported", details=f"{len(data)} users exported")
+    return send_file(path, as_attachment=True, download_name="users.xlsx")
+
+
 @bp.route("/create", methods=["GET"])
 @admin_required
 def create_form():
@@ -190,7 +230,9 @@ def edit_user(username: str):
         _audit_log("user_renamed", new_username, f"Renamed from {username}")
 
     user.update(email=email or None, fullname=fullname, enabled=enabled)
-    _audit_log("user_updated", new_username, f"email={email}, fullname={fullname}, enabled={enabled}")
+    _audit_log(
+        "user_updated", new_username, f"email={email}, fullname={fullname}, enabled={enabled}"
+    )
     flash(f"User '{new_username}' updated.", "success")
 
     return redirect(url_for("admin_users.list_users"))
@@ -305,11 +347,13 @@ def search_groups():
     for grp in all_groups:
         if query and query not in grp.name.lower() and query not in grp.description.lower():
             continue
-        results.append({
-            "value": grp.name,
-            "text": grp.name,
-            "description": grp.description,
-        })
+        results.append(
+            {
+                "value": grp.name,
+                "text": grp.name,
+                "description": grp.description,
+            }
+        )
         if len(results) >= 30:
             break
     return jsonify(results)

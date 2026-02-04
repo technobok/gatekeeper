@@ -2,12 +2,24 @@
 
 from datetime import UTC, datetime
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    g,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    url_for,
+)
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
+from gatekeeper.services.export import write_xlsx
 
 bp = Blueprint("admin_groups", __name__, url_prefix="/admin/groups")
 
@@ -58,6 +70,21 @@ def list_groups():
     if _is_htmx():
         return render_template("admin/groups_table.html", groups=groups)
     return render_template("admin/groups.html", groups=groups)
+
+
+@bp.route("/export")
+@admin_required
+def export():
+    """Export all groups as XLSX."""
+    groups = _groups_with_counts()
+    headers = ["Name", "Description", "Members", "Created", "Updated"]
+    data = [
+        [g["name"], g["description"], g["member_count"], g["created_at"], g["updated_at"]]
+        for g in groups
+    ]
+    path = write_xlsx(headers, data, "groups.xlsx")
+    _audit_log("groups_exported", details=f"{len(data)} groups exported")
+    return send_file(path, as_attachment=True, download_name="groups.xlsx")
 
 
 @bp.route("/create", methods=["GET"])
@@ -172,7 +199,9 @@ def add_member(name: str):
         flash(f"Added '{username}' to group '{name}'.", "success")
 
     if _is_htmx():
-        return render_template("admin/group_members_list.html", group=group, members=_get_member_users(group))
+        return render_template(
+            "admin/group_members_list.html", group=group, members=_get_member_users(group)
+        )
     return redirect(url_for("admin_groups.members", name=name))
 
 
@@ -191,7 +220,9 @@ def remove_member(name: str, username: str):
         flash(f"User '{username}' is not a member of '{name}'.", "error")
 
     if _is_htmx():
-        return render_template("admin/group_members_list.html", group=group, members=_get_member_users(group))
+        return render_template(
+            "admin/group_members_list.html", group=group, members=_get_member_users(group)
+        )
     return redirect(url_for("admin_groups.members", name=name))
 
 
@@ -203,14 +234,21 @@ def search_users():
     all_users = User.get_all(limit=500)
     results = []
     for user in all_users:
-        if query and query not in user.username.lower() and query not in user.email.lower() and query not in user.fullname.lower():
+        if (
+            query
+            and query not in user.username.lower()
+            and query not in user.email.lower()
+            and query not in user.fullname.lower()
+        ):
             continue
-        results.append({
-            "value": user.username,
-            "text": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-        })
+        results.append(
+            {
+                "value": user.username,
+                "text": user.username,
+                "email": user.email,
+                "fullname": user.fullname,
+            }
+        )
         if len(results) >= 30:
             break
     return jsonify(results)

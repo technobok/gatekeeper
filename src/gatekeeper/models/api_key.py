@@ -37,8 +37,7 @@ class ApiKey:
 
         with transaction() as cursor:
             cursor.execute(
-                "INSERT INTO api_key (key, description, enabled, created_at) "
-                "VALUES (?, ?, 1, ?)",
+                "INSERT INTO api_key (key, description, enabled, created_at) VALUES (?, ?, 1, ?)",
                 (raw_key, description, now),
             )
             row = cursor.execute("SELECT last_insert_rowid()").fetchone()

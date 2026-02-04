@@ -8,6 +8,7 @@ dependencies = [
     "apsw>=3.45",
     "itsdangerous>=2.1",
     "gunicorn>=23.0",
+    "openpyxl>=3.1",
 ]
 
 [project.optional-dependencies]
