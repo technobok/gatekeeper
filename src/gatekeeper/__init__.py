@@ -83,7 +83,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         """Import users from a CSV file (columns: username,email,fullname)."""
         import csv
 
+        from gatekeeper.db import get_db
+        from gatekeeper.models.group import Group
         from gatekeeper.models.user import User
+
+        standard_group = Group.get("standard")
+        db = get_db()
+        now = datetime.now(UTC).isoformat()
 
         created = 0
         skipped = 0
@@ -105,6 +111,13 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                     continue
 
                 User.create(username=username, email=email, fullname=fullname)
+                if standard_group:
+                    standard_group.add_member(username)
+                db.execute(
+                    "INSERT INTO audit_log (timestamp, actor, action, target, details) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (now, "import-users", "user_created", username, f"email={email}, fullname={fullname}"),
+                )
                 click.echo(f"Created: {username}")
                 created += 1
 
