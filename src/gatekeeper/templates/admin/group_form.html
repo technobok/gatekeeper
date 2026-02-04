@@ -15,12 +15,12 @@
 
     <label for="description">
         Description
-        <textarea id="description" name="description" rows="3">{{ group.description if group else '' }}</textarea>
+        <input type="text" id="description" name="description" value="{{ group.description if group else '' }}">
     </label>
 
     <div style="display: flex; gap: 0.5rem;">
-        <button type="submit">{{ "Save" if group else "Create" }}</button>
-        <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_groups.list_groups') }}'">Cancel</button>
+        <button type="submit" style="flex: 1;">{{ "Save" if group else "Create" }}</button>
+        <button type="button" class="outline secondary" style="flex: 1;" onclick="location.href='{{ url_for('admin_groups.list_groups') }}'">Cancel</button>
     </div>
 </form>
 {% endblock %}
