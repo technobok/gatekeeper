@@ -138,6 +138,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     from gatekeeper.blueprints import (
         admin_api_keys,
         admin_groups,
+        admin_sql,
         admin_system,
         admin_users,
         api,
@@ -150,6 +151,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(admin_groups.bp)
     app.register_blueprint(admin_api_keys.bp)
     app.register_blueprint(admin_system.bp)
+    app.register_blueprint(admin_sql.bp)
 
     # Jinja filters
     def _get_user_timezone() -> ZoneInfo:
