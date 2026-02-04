@@ -9,25 +9,53 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav class="container-fluid">
-        <ul>
-            <li><strong>Gatekeeper</strong></li>
-        </ul>
-        {% if g.user %}
-        <ul>
-            <li><a href="{{ url_for('admin_users.list_users') }}">Users</a></li>
-            <li><a href="{{ url_for('admin_groups.list_groups') }}">Groups</a></li>
-            <li><a href="{{ url_for('admin_api_keys.index') }}">API Keys</a></li>
-            <li><a href="{{ url_for('admin_system.index') }}">System</a></li>
-            <li>
-                <small>{{ g.user.username }}</small>
-                <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline; margin:0;">
-                    <button type="submit" class="outline secondary" style="padding: 4px 8px; margin: 0;">Logout</button>
-                </form>
-            </li>
-        </ul>
-        {% endif %}
-    </nav>
+    <header class="container">
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('admin_system.index') }}" class="brand"><strong>Gatekeeper</strong></a></li>
+            </ul>
+            <ul>
+                {% if g.user %}
+                <li><a href="{{ url_for('admin_users.list_users') }}">Users</a></li>
+                <li><a href="{{ url_for('admin_groups.list_groups') }}">Groups</a></li>
+                <li><a href="{{ url_for('admin_api_keys.index') }}">API Keys</a></li>
+                <li><a href="{{ url_for('admin_system.index') }}">System</a></li>
+                <li><small>{{ g.user.username }}</small></li>
+                <li>
+                    <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline; margin:0;">
+                        <button type="submit" class="outline secondary">Logout</button>
+                    </form>
+                </li>
+                {% endif %}
+                <li>
+                    <label class="theme-toggle" aria-label="Toggle theme">
+                        <input id="mode-checkbox" class="mode-checkbox" type="checkbox" />
+                        <div class="mode-slot">
+                            <div class="sun-icon-wrapper">
+                                <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="5"></circle>
+                                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                                </svg>
+                            </div>
+                            <div class="mode-button"></div>
+                            <div class="moon-icon-wrapper">
+                                <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </label>
+                </li>
+            </ul>
+        </nav>
+    </header>
 
     <main class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}

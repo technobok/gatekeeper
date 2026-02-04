@@ -6,20 +6,19 @@
 
 <form method="post"
       action="{{ url_for('admin_users.edit_user', username=user.username) if user else url_for('admin_users.create_user') }}">
-    {% if not user %}
     <label for="username">
         Username
         <input type="text" id="username" name="username" required autofocus
+               value="{{ user.username if user else '' }}"
                placeholder="e.g. DOMAIN\jsmith or jsmith">
     </label>
-    {% endif %}
 
     <label for="email">
         Email
         <input type="email" id="email" name="email" required
                value="{{ user.email if user else '' }}"
                placeholder="user@example.com"
-               {{ "autofocus" if user else "" }}>
+               >
     </label>
 
     <label for="fullname">

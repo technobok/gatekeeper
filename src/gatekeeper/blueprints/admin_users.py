@@ -154,13 +154,26 @@ def edit_user(username: str):
     if user is None:
         abort(404)
 
+    new_username = request.form.get("username", "").strip()
     email = request.form.get("email", "").strip()
     fullname = request.form.get("fullname", "").strip()
     enabled = request.form.get("enabled") == "on"
 
+    if not new_username or not email:
+        flash("Username and email are required.", "error")
+        return redirect(url_for("admin_users.edit_form", username=username))
+
+    # Handle username rename
+    if new_username != username:
+        if User.get(new_username):
+            flash(f"Username '{new_username}' is already taken.", "error")
+            return redirect(url_for("admin_users.edit_form", username=username))
+        user.rename(new_username)
+        _audit_log("user_renamed", new_username, f"Renamed from {username}")
+
     user.update(email=email or None, fullname=fullname, enabled=enabled)
-    _audit_log("user_updated", username, f"email={email}, fullname={fullname}, enabled={enabled}")
-    flash(f"User '{username}' updated.", "success")
+    _audit_log("user_updated", new_username, f"email={email}, fullname={fullname}, enabled={enabled}")
+    flash(f"User '{new_username}' updated.", "success")
 
     return redirect(url_for("admin_users.list_users"))
 

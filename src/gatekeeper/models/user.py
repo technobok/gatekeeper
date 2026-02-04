@@ -116,6 +116,31 @@ class User:
                 )
             self.updated_at = now
 
+    def rename(self, new_username: str) -> None:
+        """Rename this user (change primary key). Updates all FK references."""
+        now = datetime.now(UTC).isoformat()
+
+        with transaction() as cursor:
+            cursor.execute(
+                "UPDATE user SET username = ?, updated_at = ? WHERE username = ?",
+                (new_username, now, self.username),
+            )
+            cursor.execute(
+                "UPDATE group_user SET username = ? WHERE username = ?",
+                (new_username, self.username),
+            )
+            cursor.execute(
+                "UPDATE audit_log SET actor = ? WHERE actor = ?",
+                (new_username, self.username),
+            )
+            cursor.execute(
+                "UPDATE audit_log SET target = ? WHERE target = ?",
+                (new_username, self.username),
+            )
+
+        self.username = new_username
+        self.updated_at = now
+
     def rotate_login_salt(self) -> str:
         """Rotate this user's login salt, invalidating all their sessions."""
         new_salt = secrets.token_hex(8)

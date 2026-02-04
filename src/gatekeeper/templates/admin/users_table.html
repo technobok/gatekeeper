@@ -5,7 +5,7 @@
    hx-target="#users-table">
     {{ label }}
     {% if sort == column %}
-        {{ "&#9650;" if order == "asc" else "&#9660;" }}
+        {{ "▲" if order == "asc" else "▼" }}
     {% endif %}
 </a>
 {% endmacro %}
