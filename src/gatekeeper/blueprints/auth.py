@@ -165,6 +165,14 @@ def login():
             return render_template("auth/login.html", next_url=next_url, identifier=identifier)
         return redirect(url_for("auth.login", next=next_url))
 
+    # Only admin users may log in
+    if not Group.user_in_group(user.username, "admin"):
+        flash("Access is restricted to administrators.", "error")
+        _audit_log("login_rejected", user.username, "Non-admin login attempt")
+        if _is_htmx():
+            return render_template("auth/login.html", next_url=next_url, identifier=identifier)
+        return redirect(url_for("auth.login", next=next_url))
+
     # Create magic link token and send email
     magic_token = token_service.create_magic_link_token(user.username, redirect_url=next_url)
     callback_url = url_for("auth.verify", token=magic_token, _external=True)
@@ -194,6 +202,12 @@ def verify():
         return redirect(url_for("auth.login"))
 
     user, redirect_url = result
+
+    # Re-check admin membership (user may have been removed since link was sent)
+    if not Group.user_in_group(user.username, "admin"):
+        flash("Access is restricted to administrators.", "error")
+        _audit_log("login_rejected", user.username, "Non-admin at verification")
+        return redirect(url_for("auth.login"))
 
     # Create auth token and set cookie
     auth_token = token_service.create_auth_token(user)
