@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -186,6 +186,27 @@ def remove_member(name: str, username: str):
     if _is_htmx():
         return render_template("admin/group_members_list.html", group=group, members=member_names)
     return redirect(url_for("admin_groups.members", name=name))
+
+
+@bp.route("/users/search")
+@admin_required
+def search_users():
+    """Search users for tom-select typeahead (returns JSON)."""
+    query = request.args.get("q", "").strip().lower()
+    all_users = User.get_all(limit=500)
+    results = []
+    for user in all_users:
+        if query and query not in user.username.lower() and query not in user.email.lower() and query not in user.fullname.lower():
+            continue
+        results.append({
+            "value": user.username,
+            "text": user.username,
+            "email": user.email,
+            "fullname": user.fullname,
+        })
+        if len(results) >= 30:
+            break
+    return jsonify(results)
 
 
 @bp.route("/<name>/copy-from/<path:source_username>", methods=["POST"])

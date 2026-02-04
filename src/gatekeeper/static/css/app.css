@@ -247,3 +247,124 @@ td [role="group"] {
     margin: 0;
     gap: 4px;
 }
+
+/* Tom Select - PicoCSS Theme */
+.ts-wrapper {
+    margin-bottom: 0;
+}
+
+.ts-wrapper.single .ts-control,
+.ts-wrapper.multi .ts-control {
+    background-color: var(--pico-form-element-background-color) !important;
+    border: var(--pico-border-width) solid var(--pico-form-element-border-color) !important;
+    border-radius: var(--pico-border-radius);
+    padding: var(--pico-form-element-spacing-vertical) var(--pico-form-element-spacing-horizontal);
+    min-height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2);
+    color: var(--pico-form-element-color);
+    font-size: var(--pico-font-size);
+    line-height: var(--pico-line-height);
+    box-shadow: none !important;
+    transition: background-color var(--pico-transition), border-color var(--pico-transition), box-shadow var(--pico-transition);
+}
+
+.ts-wrapper.single .ts-control {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    height: calc(1rem * var(--pico-line-height) + var(--pico-form-element-spacing-vertical) * 2 + var(--pico-border-width) * 2);
+    min-height: unset;
+}
+
+.ts-wrapper.single .ts-control > .item {
+    white-space: nowrap;
+    flex-shrink: 0;
+    display: inline-block !important;
+    line-height: calc(1rem * var(--pico-line-height));
+}
+
+.ts-wrapper.single.has-items .ts-control > input {
+    flex: 0 0 auto;
+    width: 1px !important;
+    min-width: 1px;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto;
+}
+
+.ts-wrapper.focus .ts-control {
+    border-color: var(--pico-form-element-active-border-color) !important;
+    box-shadow: 0 0 0 var(--pico-outline-width) var(--pico-form-element-focus-color) !important;
+    background-color: var(--pico-form-element-background-color) !important;
+}
+
+.ts-control > input,
+.ts-control > input:focus {
+    color: var(--pico-form-element-color) !important;
+    font-size: var(--pico-font-size) !important;
+    background: transparent !important;
+}
+
+.ts-control > input::placeholder {
+    color: var(--pico-form-element-placeholder-color) !important;
+    opacity: 1;
+}
+
+/* Tom Select - Dropdown */
+.ts-dropdown,
+.ts-dropdown.single,
+.ts-dropdown.multi {
+    background-color: var(--pico-form-element-background-color) !important;
+    border: var(--pico-border-width) solid var(--pico-form-element-border-color) !important;
+    border-top: none !important;
+    border-radius: 0 0 var(--pico-border-radius) var(--pico-border-radius);
+    box-shadow: 0 0.25rem 1rem rgba(0, 0, 0, 0.15);
+    margin-top: 0;
+    color: var(--pico-color);
+}
+
+.ts-dropdown .ts-dropdown-content {
+    background-color: var(--pico-form-element-background-color);
+}
+
+.ts-dropdown .option,
+.ts-dropdown .optgroup-header,
+.ts-dropdown .no-results,
+.ts-dropdown .create {
+    padding: var(--pico-form-element-spacing-vertical) var(--pico-form-element-spacing-horizontal);
+    color: var(--pico-color) !important;
+    background-color: transparent;
+}
+
+.ts-dropdown [data-selectable].option {
+    opacity: 1;
+    cursor: pointer;
+}
+
+.ts-dropdown .option.active,
+.ts-dropdown .option:hover {
+    background-color: var(--pico-primary-background) !important;
+    color: var(--pico-primary-inverse) !important;
+}
+
+.ts-dropdown .user-email {
+    color: var(--pico-muted-color);
+    font-size: 0.85em;
+}
+
+.ts-dropdown .option.active .user-email,
+.ts-dropdown .option:hover .user-email {
+    color: var(--pico-primary-inverse);
+    opacity: 0.8;
+}
+
+/* Tom Select - Disabled state */
+.ts-wrapper.disabled .ts-control {
+    background-color: var(--pico-form-element-disabled-background-color) !important;
+    opacity: var(--pico-form-element-disabled-opacity);
+}
+
+/* Hide the original select when Tom Select is active */
+.ts-wrapper + select,
+select.tomselected {
+    display: none !important;
+}
