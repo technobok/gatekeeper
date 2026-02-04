@@ -50,9 +50,9 @@ def load_config(app, instance_path: Path, project_root: Path) -> None:
             app.config["MAGIC_LINK_EXPIRY_SECONDS"] = config.getint(
                 "auth", "MAGIC_LINK_EXPIRY_SECONDS"
             )
-        if config.has_option("auth", "ADMIN_USERNAMES"):
-            raw = config.get("auth", "ADMIN_USERNAMES")
-            app.config["ADMIN_USERNAMES"] = [u.strip() for u in raw.split(",") if u.strip()]
+        if config.has_option("auth", "ADMIN_EMAILS"):
+            raw = config.get("auth", "ADMIN_EMAILS")
+            app.config["ADMIN_EMAILS"] = [u.strip() for u in raw.split(",") if u.strip()]
 
     if config.has_section("proxy"):
         from werkzeug.middleware.proxy_fix import ProxyFix

@@ -37,7 +37,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         DEV_PORT=5100,
         DEBUG=False,
         LDAP_ENABLED=False,
-        ADMIN_USERNAMES=[],
+        ADMIN_EMAILS=[],
     )
 
     if test_config is None:
@@ -78,7 +78,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.cli.command("ensure-admins")
     def ensure_admins_command() -> None:
-        """Ensure ADMIN_USERNAMES from config are in the admin group."""
+        """Ensure ADMIN_EMAILS from config have accounts and are in the admin group."""
         _ensure_admins(app)
 
     # Register blueprints
@@ -132,23 +132,50 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 return str(value)
         return json.dumps(value, indent=2)
 
-    # Ensure admin users on first request
+    # Root route redirects to admin
+    @app.route("/")
+    def index():
+        from flask import redirect, url_for
+
+        return redirect(url_for("admin_system.index"))
+
+    # Startup checks
     with app.app_context():
         from gatekeeper.services.ldap_service import check_ldap_configured
 
         check_ldap_configured()
+        _ensure_admins(app)
 
     return app
 
 
 def _ensure_admins(app: Flask) -> None:
-    """Ensure configured admin usernames exist and are in the admin group."""
+    """Ensure configured admin emails have accounts and are in the admin group."""
+    from gatekeeper.db import get_db
     from gatekeeper.models.group import Group
     from gatekeeper.models.user import User
 
-    admin_usernames = app.config.get("ADMIN_USERNAMES", [])
-    for username in admin_usernames:
-        user = User.get(username)
-        if user and not Group.user_in_group(username, "admin"):
-            Group.get("admin").add_member(username)
-            app.logger.info(f"Added existing user {username} to admin group")
+    admin_emails = app.config.get("ADMIN_EMAILS", [])
+    if not admin_emails:
+        return
+
+    # Check if the database is initialized (schema exists)
+    db = get_db()
+    try:
+        db.execute("SELECT 1 FROM user LIMIT 0").fetchone()
+    except Exception:
+        return
+
+    for email in admin_emails:
+        users = User.get_by_email(email)
+        if users:
+            user = users[0]
+        else:
+            user = User.create(username=email, email=email)
+            app.logger.info(f"Created admin user: {email}")
+
+        if not Group.user_in_group(user.username, "admin"):
+            admin_group = Group.get("admin")
+            if admin_group:
+                admin_group.add_member(user.username)
+                app.logger.info(f"Added {user.username} to admin group")
