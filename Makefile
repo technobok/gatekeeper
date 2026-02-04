@@ -1,4 +1,4 @@
-.PHONY: help sync install init-db run rundev check clean
+.PHONY: help sync install init-db import-users run rundev check clean
 
 SHELL := /bin/bash
 VENV_DIR := $(or $(VIRTUAL_ENV),.venv)
@@ -14,6 +14,8 @@ help:
 	@echo "sync     - Sync dependencies with uv (creates venv if needed)"
 	@echo "install  - Alias for sync"
 	@echo "init-db  - Create a blank database"
+	@echo "import-users FILE=path/to/users.csv"
+	@echo "           - Import users from CSV (columns: username,email,fullname)"
 	@echo "run      - Run server via gunicorn (0.0.0.0:5100)"
 	@echo "rundev   - Run Flask dev server (DEV_HOST:DEV_PORT, debug=True)"
 	@echo "check    - Run ruff and ty for code quality"
@@ -26,6 +28,9 @@ install: sync
 
 init-db:
 	@$(FLASK) --app wsgi init-db
+
+import-users:
+	@$(FLASK) --app wsgi import-users $(FILE)
 
 run:
 	@$(GUNICORN) wsgi:app --bind 0.0.0.0:5100 --workers 2 --preload

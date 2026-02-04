@@ -39,6 +39,10 @@ def index():
 def generate():
     """Generate a new API key."""
     description = request.form.get("description", "").strip()
+    if not description:
+        flash("Description is required.", "error")
+        return redirect(url_for("admin_api_keys.index"))
+
     api_key = ApiKey.generate(description=description)
 
     _audit_log("api_key_generated", str(api_key.id), f"Description: {description}")

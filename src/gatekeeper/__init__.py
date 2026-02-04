@@ -77,6 +77,39 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
                 group.add_member(username)
                 click.echo(f"Added {username} to admin group.")
 
+    @app.cli.command("import-users")
+    @click.argument("csv_file", type=click.Path(exists=True))
+    def import_users_command(csv_file: str) -> None:
+        """Import users from a CSV file (columns: username,email,fullname)."""
+        import csv
+
+        from gatekeeper.models.user import User
+
+        created = 0
+        skipped = 0
+        with open(csv_file, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                username = row.get("username", "").strip()
+                email = row.get("email", "").strip()
+                fullname = row.get("fullname", "").strip()
+
+                if not username or not email:
+                    click.echo(f"Skipping row (missing username or email): {row}")
+                    skipped += 1
+                    continue
+
+                if User.get(username):
+                    click.echo(f"Exists, skipping: {username}")
+                    skipped += 1
+                    continue
+
+                User.create(username=username, email=email, fullname=fullname)
+                click.echo(f"Created: {username}")
+                created += 1
+
+        click.echo(f"Done. Created: {created}, Skipped: {skipped}")
+
     @app.cli.command("ensure-admins")
     def ensure_admins_command() -> None:
         """Ensure ADMIN_EMAILS from config have accounts and are in the admin group."""
