@@ -139,6 +139,9 @@ def create_user():
 
     try:
         User.create(username=username, email=email, fullname=fullname, enabled=enabled)
+        standard = Group.get("standard")
+        if standard:
+            standard.add_member(username)
         _audit_log(
             "user_created", username, f"email={email}, fullname={fullname}, enabled={enabled}"
         )
