@@ -2,6 +2,7 @@
     <td><a href="{{ url_for('admin_users.edit_form', username=user.username) }}">{{ user.username }}</a></td>
     <td>{{ user.email }}</td>
     <td>{{ user.fullname }}</td>
+    <td>{{ user_groups.get(user.username, [])|join(", ") }}</td>
     <td>
         {% if user.enabled %}
             <mark>Enabled</mark>

@@ -16,6 +16,7 @@
             <th>{{ sort_link("username", "Username") }}</th>
             <th>{{ sort_link("email", "Email") }}</th>
             <th>{{ sort_link("fullname", "Full Name") }}</th>
+            <th>Groups</th>
             <th>{{ sort_link("enabled", "Enabled") }}</th>
             <th>Actions</th>
         </tr>
@@ -25,7 +26,7 @@
             {% include "admin/user_row.html" %}
         {% else %}
         <tr>
-            <td colspan="5">No users found.</td>
+            <td colspan="6">No users found.</td>
         </tr>
         {% endfor %}
     </tbody>

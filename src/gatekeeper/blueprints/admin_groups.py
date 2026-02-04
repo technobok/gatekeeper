@@ -209,25 +209,24 @@ def search_users():
     return jsonify(results)
 
 
-@bp.route("/<name>/copy-from/<path:source_username>", methods=["POST"])
+@bp.route("/copy-memberships", methods=["POST"])
 @admin_required
-def copy_memberships(name: str, source_username: str):
-    """Copy all group memberships from source user to target user.
-
-    Adds target_username to every group that source_username belongs to.
-    """
+def copy_memberships():
+    """Copy all group memberships from source user to target user."""
+    source_username = request.form.get("source_username", "").strip()
     target_username = request.form.get("target_username", "").strip()
-    if not target_username:
-        flash("Target username is required.", "error")
-        return redirect(url_for("admin_groups.members", name=name))
+
+    if not source_username or not target_username:
+        flash("Both source and target usernames are required.", "error")
+        return redirect(url_for("admin_groups.list_groups"))
 
     if User.get(source_username) is None:
         flash(f"Source user '{source_username}' not found.", "error")
-        return redirect(url_for("admin_groups.members", name=name))
+        return redirect(url_for("admin_groups.list_groups"))
 
     if User.get(target_username) is None:
         flash(f"Target user '{target_username}' not found.", "error")
-        return redirect(url_for("admin_groups.members", name=name))
+        return redirect(url_for("admin_groups.list_groups"))
 
     source_groups = Group.get_groups_for_user(source_username)
     added = []
@@ -252,4 +251,4 @@ def copy_memberships(name: str, source_username: str):
             f"'{target_username}' is already a member of all groups that '{source_username}' belongs to.",
             "info",
         )
-    return redirect(url_for("admin_groups.members", name=name))
+    return redirect(url_for("admin_groups.list_groups"))

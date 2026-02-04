@@ -21,30 +21,6 @@
     {% include "admin/group_members_list.html" %}
 </div>
 
-<hr>
-
-<h2>Copy memberships from user</h2>
-<form method="post" style="max-width: 500px;">
-    <label for="source_username">
-        Source username
-        <select id="source_username" name="source_username" required placeholder="Copy from this user..."></select>
-    </label>
-    <label for="target_username">
-        Target username
-        <select id="target_username" name="target_username" required placeholder="Copy to this user..."></select>
-    </label>
-    <button type="submit" formaction="" id="copy-btn">Copy</button>
-</form>
-
-<script>
-document.getElementById("copy-btn").addEventListener("click", function(e) {
-    var source = document.getElementById("source_username").value.trim();
-    var target = document.getElementById("target_username").value.trim();
-    if (!source || !target) return;
-    this.closest("form").action = "{{ url_for('admin_groups.copy_memberships', name=group.name, source_username='__SRC__') }}".replace("__SRC__", encodeURIComponent(source));
-});
-</script>
-
 <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_groups.list_groups') }}'">Back to Groups</button>
 {% endblock %}
 
@@ -69,29 +45,22 @@ document.getElementById("copy-btn").addEventListener("click", function(e) {
         return '<div>' + escape(data.text) + '</div>';
     };
 
-    function makeUserSelect(el) {
-        return new TomSelect(el, {
-            valueField: 'value',
-            labelField: 'text',
-            searchField: ['text', 'email', 'fullname'],
-            maxItems: 1,
-            loadThrottle: 200,
-            preload: 'focus',
-            load: function(query, callback) {
-                fetch(searchUrl + '?q=' + encodeURIComponent(query))
-                    .then(function(r) { return r.json(); })
-                    .then(function(json) { callback(json); })
-                    .catch(function() { callback(); });
-            },
-            render: { option: renderOption, item: renderItem }
-        });
-    }
+    var addSelect = new TomSelect('#add-member-select', {
+        valueField: 'value',
+        labelField: 'text',
+        searchField: ['text', 'email', 'fullname'],
+        maxItems: 1,
+        loadThrottle: 200,
+        preload: 'focus',
+        load: function(query, callback) {
+            fetch(searchUrl + '?q=' + encodeURIComponent(query))
+                .then(function(r) { return r.json(); })
+                .then(function(json) { callback(json); })
+                .catch(function() { callback(); });
+        },
+        render: { option: renderOption, item: renderItem }
+    });
 
-    var addSelect = makeUserSelect('#add-member-select');
-    makeUserSelect('#source_username');
-    makeUserSelect('#target_username');
-
-    // Clear the add-member select after HTMX swap so it's ready for the next add
     document.getElementById('members-list').addEventListener('htmx:afterSwap', function() {
         addSelect.clear();
     });

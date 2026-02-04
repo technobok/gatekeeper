@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}Groups - Gatekeeper{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/tom-select.min.css') }}">
+{% endblock %}
+
 {% block content %}
 <div style="display: flex; justify-content: space-between; align-items: center;">
     <h1>Groups</h1>
@@ -10,4 +14,64 @@
 <div id="groups-table">
     {% include "admin/groups_table.html" %}
 </div>
+
+<hr>
+
+<h2>Copy memberships from user</h2>
+<form method="post" action="{{ url_for('admin_groups.copy_memberships') }}" style="max-width: 500px;">
+    <label for="source_username">
+        Source user
+        <select id="source_username" name="source_username" required placeholder="Copy from this user..."></select>
+    </label>
+    <label for="target_username">
+        Target user
+        <select id="target_username" name="target_username" required placeholder="Copy to this user..."></select>
+    </label>
+    <button type="submit">Copy</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/tom-select.min.js') }}"></script>
+<script>
+(function() {
+    var searchUrl = "{{ url_for('admin_groups.search_users') }}";
+
+    var renderOption = function(data, escape) {
+        var label = escape(data.text);
+        var extra = [];
+        if (data.fullname) extra.push(escape(data.fullname));
+        if (data.email && data.email !== data.text) extra.push(escape(data.email));
+        if (extra.length) {
+            label += '<small class="user-email"> (' + extra.join(' - ') + ')</small>';
+        }
+        return '<div>' + label + '</div>';
+    };
+
+    var renderItem = function(data, escape) {
+        return '<div>' + escape(data.text) + '</div>';
+    };
+
+    function makeUserSelect(el) {
+        return new TomSelect(el, {
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text', 'email', 'fullname'],
+            maxItems: 1,
+            loadThrottle: 200,
+            preload: 'focus',
+            load: function(query, callback) {
+                fetch(searchUrl + '?q=' + encodeURIComponent(query))
+                    .then(function(r) { return r.json(); })
+                    .then(function(json) { callback(json); })
+                    .catch(function() { callback(); });
+            },
+            render: { option: renderOption, item: renderItem }
+        });
+    }
+
+    makeUserSelect('#source_username');
+    makeUserSelect('#target_username');
+})();
+</script>
 {% endblock %}

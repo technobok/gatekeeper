@@ -82,8 +82,22 @@ def list_users():
     users, total = _get_users_page(search, page, per_page, sort, order)
     total_pages = max(1, (total + per_page - 1) // per_page)
 
+    # Build username -> groups mapping for the current page of users
+    user_groups: dict[str, list[str]] = {}
+    if users:
+        db = get_db()
+        usernames = [u.username for u in users]
+        placeholders = ",".join("?" * len(usernames))
+        rows = db.execute(
+            f"SELECT username, group_name FROM group_user WHERE username IN ({placeholders}) ORDER BY group_name",
+            usernames,
+        ).fetchall()
+        for row in rows:
+            user_groups.setdefault(row[0], []).append(row[1])
+
     context = {
         "users": users,
+        "user_groups": user_groups,
         "search": search or "",
         "page": page,
         "per_page": per_page,
@@ -191,7 +205,8 @@ def toggle_user(username: str):
     state_label = "enabled" if new_state else "disabled"
     _audit_log("user_toggled", username, f"Set {state_label}")
 
-    return render_template("admin/user_row.html", user=user)
+    groups = Group.get_groups_for_user(username)
+    return render_template("admin/user_row.html", user=user, user_groups={username: groups})
 
 
 @bp.route("/<path:username>/rotate-salt", methods=["POST"])
