@@ -39,11 +39,10 @@ def index():
 def generate():
     """Generate a new API key."""
     description = request.form.get("description", "").strip()
-    api_key, raw_key = ApiKey.generate(description=description)
+    api_key = ApiKey.generate(description=description)
 
-    _audit_log("api_key_generated", api_key.key_prefix, f"Description: {description}")
+    _audit_log("api_key_generated", str(api_key.id), f"Description: {description}")
 
-    flash(f"New API key (copy now, it will not be shown again): {raw_key}", "success")
     return redirect(url_for("admin_api_keys.index"))
 
 
@@ -58,10 +57,10 @@ def toggle(key_id: int):
 
     if api_key.enabled:
         api_key.disable()
-        _audit_log("api_key_disabled", api_key.key_prefix)
+        _audit_log("api_key_disabled", str(api_key.id))
     else:
         api_key.enable()
-        _audit_log("api_key_enabled", api_key.key_prefix)
+        _audit_log("api_key_enabled", str(api_key.id))
 
     if _is_htmx():
         return render_template("admin/api_key_row.html", key=api_key)
@@ -78,9 +77,9 @@ def delete(key_id: int):
         flash("API key not found.", "error")
         return redirect(url_for("admin_api_keys.index"))
 
-    prefix = api_key.key_prefix
+    key_id_str = str(api_key.id)
     api_key.delete()
-    _audit_log("api_key_deleted", prefix)
+    _audit_log("api_key_deleted", key_id_str)
 
     flash("API key deleted.", "success")
     return redirect(url_for("admin_api_keys.index"))

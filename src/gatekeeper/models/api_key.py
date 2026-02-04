@@ -1,20 +1,18 @@
 """API key model."""
 
-import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from gatekeeper.db import get_db, transaction
 
-_API_KEY_COLUMNS = "id, key_prefix, key_hash, description, enabled, created_at, last_used_at"
+_API_KEY_COLUMNS = "id, key, description, enabled, created_at, last_used_at"
 
 
 @dataclass
 class ApiKey:
     id: int
-    key_prefix: str
-    key_hash: str
+    key: str
     description: str
     enabled: bool
     created_at: str
@@ -24,60 +22,50 @@ class ApiKey:
     def _from_row(row: tuple) -> ApiKey:
         return ApiKey(
             id=row[0],
-            key_prefix=row[1],
-            key_hash=row[2],
-            description=row[3],
-            enabled=bool(row[4]),
-            created_at=row[5],
-            last_used_at=row[6],
+            key=row[1],
+            description=row[2],
+            enabled=bool(row[3]),
+            created_at=row[4],
+            last_used_at=row[5],
         )
 
     @staticmethod
-    def generate(description: str = "") -> tuple[ApiKey, str]:
-        """Generate a new API key. Returns (ApiKey, raw_key).
-
-        The raw key is only available at creation time.
-        """
+    def generate(description: str = "") -> ApiKey:
+        """Generate a new API key."""
         raw_key = "gk_" + secrets.token_urlsafe(32)
-        key_prefix = raw_key[:11]  # "gk_" + 8 chars
-        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         now = datetime.now(UTC).isoformat()
 
         with transaction() as cursor:
             cursor.execute(
-                "INSERT INTO api_key (key_prefix, key_hash, description, enabled, created_at) "
-                "VALUES (?, ?, ?, 1, ?)",
-                (key_prefix, key_hash, description, now),
+                "INSERT INTO api_key (key, description, enabled, created_at) "
+                "VALUES (?, ?, 1, ?)",
+                (raw_key, description, now),
             )
             row = cursor.execute("SELECT last_insert_rowid()").fetchone()
             key_id = int(row[0]) if row else 0
 
-        api_key = ApiKey(
+        return ApiKey(
             id=key_id,
-            key_prefix=key_prefix,
-            key_hash=key_hash,
+            key=raw_key,
             description=description,
             enabled=True,
             created_at=now,
             last_used_at=None,
         )
-        return api_key, raw_key
 
     @staticmethod
     def verify(raw_key: str) -> ApiKey | None:
         """Verify an API key and return the ApiKey if valid and enabled."""
-        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
         db = get_db()
         row = db.execute(
-            f"SELECT {_API_KEY_COLUMNS} FROM api_key WHERE key_hash = ? AND enabled = 1",
-            (key_hash,),
+            f"SELECT {_API_KEY_COLUMNS} FROM api_key WHERE key = ? AND enabled = 1",
+            (raw_key,),
         ).fetchone()
 
         if row is None:
             return None
 
         api_key = ApiKey._from_row(row)
-        # Update last_used_at
         now = datetime.now(UTC).isoformat()
         with transaction() as cursor:
             cursor.execute(

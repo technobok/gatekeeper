@@ -40,7 +40,7 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
 
     db = get_db()
     now = datetime.now(UTC).isoformat()
-    actor = f"api_key:{g.api_key.key_prefix}" if hasattr(g, "api_key") else None
+    actor = f"api_key:{g.api_key.id}" if hasattr(g, "api_key") else None
     db.execute(
         "INSERT INTO audit_log (timestamp, actor, action, target, details) VALUES (?, ?, ?, ?, ?)",
         (now, actor, action, target, details),

@@ -41,8 +41,7 @@ CREATE TABLE IF NOT EXISTS group_user (
 
 CREATE TABLE IF NOT EXISTS api_key (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key_prefix TEXT NOT NULL,
-    key_hash TEXT NOT NULL,
+    key TEXT NOT NULL UNIQUE,
     description TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
