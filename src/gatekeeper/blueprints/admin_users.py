@@ -201,6 +201,103 @@ def create_user():
     return redirect(url_for("admin_users.list_users"))
 
 
+@bp.route("/ldap-provision", methods=["GET"])
+@admin_required
+def ldap_provision_form():
+    """Show LDAP user provisioning form."""
+    from gatekeeper.services.ldap_service import is_ldap_enabled
+
+    if not is_ldap_enabled():
+        flash("LDAP is not enabled in configuration.", "error")
+        return redirect(url_for("admin_users.list_users"))
+
+    return render_template("admin/user_ldap_provision.html")
+
+
+@bp.route("/ldap-provision", methods=["POST"])
+@admin_required
+def ldap_provision():
+    """Provision a user from LDAP."""
+    from flask import current_app
+
+    from gatekeeper.services.ldap_service import (
+        is_ldap_enabled,
+        lookup_by_email,
+        lookup_by_username,
+    )
+
+    if not is_ldap_enabled():
+        flash("LDAP is not enabled in configuration.", "error")
+        return redirect(url_for("admin_users.list_users"))
+
+    identifier = request.form.get("identifier", "").strip()
+    if not identifier:
+        flash("Please enter an email, username, or domain\\username.", "error")
+        return redirect(url_for("admin_users.ldap_provision_form"))
+
+    ldap_user = None
+    lookup_type = ""
+
+    if "@" in identifier:
+        # Email lookup
+        lookup_type = "email"
+        ldap_user = lookup_by_email(identifier)
+    elif "\\" in identifier:
+        # domain\username format
+        lookup_type = "domain\\username"
+        parts = identifier.split("\\", 1)
+        domain = parts[0].upper()
+        username = parts[1]
+        ldap_user = lookup_by_username(domain, username)
+    else:
+        # Bare username - try all configured domains
+        lookup_type = "username"
+        domains = current_app.config.get("LDAP_DOMAINS", [])
+        for domain in domains:
+            ldap_user = lookup_by_username(domain, identifier)
+            if ldap_user:
+                break
+
+    if not ldap_user:
+        flash(f"No user found in LDAP for '{identifier}' (searched by {lookup_type}).", "error")
+        return redirect(url_for("admin_users.ldap_provision_form"))
+
+    # Check if user already exists
+    existing = User.get(ldap_user.username)
+    if existing:
+        flash(
+            f"User '{ldap_user.username}' already exists (email: {existing.email}).",
+            "error",
+        )
+        return redirect(url_for("admin_users.ldap_provision_form"))
+
+    # Create the user
+    User.create(
+        username=ldap_user.username,
+        email=ldap_user.email,
+        fullname=ldap_user.fullname,
+        enabled=True,
+    )
+
+    # Add to standard group
+    standard = Group.get("standard")
+    if standard:
+        standard.add_member(ldap_user.username)
+
+    _audit_log(
+        "user_ldap_provisioned",
+        ldap_user.username,
+        f"email={ldap_user.email}, fullname={ldap_user.fullname}",
+    )
+    flash(
+        f"User '{ldap_user.username}' provisioned from LDAP "
+        f"(email: {ldap_user.email}, name: {ldap_user.fullname}).",
+        "success",
+    )
+
+    return redirect(url_for("admin_users.list_users"))
+
+
 @bp.route("/<path:username>/edit", methods=["GET"])
 @admin_required
 def edit_form(username: str):

@@ -6,6 +6,7 @@
     <h1>Users</h1>
     <div style="display: flex; gap: 0.5rem;">
         <button type="button" class="secondary outline" onclick="location.href='{{ url_for('admin_users.export') }}'">Export</button>
+        <button type="button" class="outline" onclick="location.href='{{ url_for('admin_users.ldap_provision_form') }}'">LDAP Lookup</button>
         <button type="button" onclick="location.href='{{ url_for('admin_users.create_form') }}'">Create User</button>
     </div>
 </div>

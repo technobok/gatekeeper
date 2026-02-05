@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Provision User from LDAP - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Provision User from LDAP</h1>
+
+<p>Look up a user in LDAP and create their account automatically.</p>
+
+<form method="post" action="{{ url_for('admin_users.ldap_provision') }}">
+    <label for="identifier">
+        Email, Username, or Domain\Username
+        <input type="text" id="identifier" name="identifier" required autofocus
+               placeholder="e.g. user@example.com, jsmith, or DOMAIN\jsmith">
+        <small>Enter the user's email address, bare username (searches all LDAP domains), or domain\username format.</small>
+    </label>
+
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <button type="submit">Look Up &amp; Create</button>
+        <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_users.list_users') }}'">Cancel</button>
+    </div>
+</form>
+{% endblock %}
