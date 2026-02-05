@@ -43,6 +43,10 @@ def load_config(app, instance_path: Path, project_root: Path) -> None:
         app.config["SMTP_PASSWORD"] = config.get("mail", "SMTP_PASSWORD", fallback="")
         app.config["MAIL_SENDER"] = config.get("mail", "MAIL_SENDER", fallback="")
 
+    if config.has_section("outbox"):
+        app.config["OUTBOX_URL"] = config.get("outbox", "URL", fallback="")
+        app.config["OUTBOX_API_KEY"] = config.get("outbox", "API_KEY", fallback="")
+
     if config.has_section("auth"):
         if config.has_option("auth", "MAGIC_LINK_EXPIRY_SECONDS"):
             app.config["MAGIC_LINK_EXPIRY_SECONDS"] = config.getint(

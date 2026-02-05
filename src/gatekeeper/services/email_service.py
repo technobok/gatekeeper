@@ -16,8 +16,47 @@ def _try_login(server: smtplib.SMTP, username: str | None, password: str | None)
         server.login(username, password)
 
 
-def send_email(to_email: str, subject: str, body_text: str, body_html: str | None = None) -> bool:
-    """Send an email via SMTP. Returns True if sent successfully."""
+def _send_via_outbox(
+    to_email: str, subject: str, body_text: str, body_html: str | None = None
+) -> bool:
+    """Send email via outbox API."""
+    import httpx
+
+    outbox_url = current_app.config.get("OUTBOX_URL", "").rstrip("/")
+    outbox_api_key = current_app.config.get("OUTBOX_API_KEY", "")
+    mail_sender = current_app.config.get("MAIL_SENDER", "")
+
+    payload = {
+        "from_address": mail_sender,
+        "to": [to_email],
+        "subject": subject,
+        "body": body_html or body_text,
+        "body_type": "html" if body_html else "plain",
+        "source_app": "gatekeeper",
+    }
+
+    try:
+        resp = httpx.post(
+            f"{outbox_url}/api/v1/messages",
+            json=payload,
+            headers={"X-API-Key": outbox_api_key},
+            timeout=10.0,
+        )
+        if resp.status_code == 201:
+            current_app.logger.info(f"Email queued via outbox to {to_email}: {subject}")
+            return True
+        else:
+            current_app.logger.error(f"Outbox API error: {resp.status_code} - {resp.text}")
+            return False
+    except Exception as e:
+        current_app.logger.error(f"Failed to send email via outbox to {to_email}: {e}")
+        return False
+
+
+def _send_via_smtp(
+    to_email: str, subject: str, body_text: str, body_html: str | None = None
+) -> bool:
+    """Send email via direct SMTP."""
     smtp_server = current_app.config.get("SMTP_SERVER")
     smtp_port = current_app.config.get("SMTP_PORT", 587)
     smtp_use_tls = current_app.config.get("SMTP_USE_TLS", True)
@@ -26,7 +65,6 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str | Non
     mail_sender = current_app.config.get("MAIL_SENDER")
 
     if not smtp_server or not mail_sender:
-        current_app.logger.warning("SMTP not configured, skipping email send")
         return False
 
     msg = MIMEMultipart("alternative")
@@ -58,6 +96,21 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str | Non
     except Exception as e:
         current_app.logger.error(f"Failed to send email to {to_email}: {e}")
         return False
+
+
+def send_email(to_email: str, subject: str, body_text: str, body_html: str | None = None) -> bool:
+    """Send an email. Uses outbox API if configured, otherwise direct SMTP."""
+    outbox_url = current_app.config.get("OUTBOX_URL")
+    outbox_api_key = current_app.config.get("OUTBOX_API_KEY")
+
+    if outbox_url and outbox_api_key:
+        return _send_via_outbox(to_email, subject, body_text, body_html)
+
+    if _send_via_smtp(to_email, subject, body_text, body_html):
+        return True
+
+    current_app.logger.warning("Email not configured (no outbox or SMTP settings)")
+    return False
 
 
 def send_magic_link(to_email: str, magic_link: str, app_name: str = "Gatekeeper") -> bool:

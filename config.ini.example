@@ -11,13 +11,21 @@ DEV_PORT = 5100
 [database]
 PATH = instance/gatekeeper.sqlite3
 
+# Send emails via outbox (recommended)
+[outbox]
+URL = http://localhost:5200
+API_KEY = outbox_api_key_here
 [mail]
-SMTP_SERVER = smtp.example.com
-SMTP_PORT = 587
-SMTP_USE_TLS = true
-SMTP_USERNAME =
-SMTP_PASSWORD =
 MAIL_SENDER = noreply@example.com
+
+# OR send emails via direct SMTP (comment out [outbox] section above)
+#[mail]
+#SMTP_SERVER = smtp.example.com
+#SMTP_PORT = 587
+#SMTP_USE_TLS = true
+#SMTP_USERNAME =
+#SMTP_PASSWORD =
+#MAIL_SENDER = noreply@example.com
 
 [auth]
 MAGIC_LINK_EXPIRY_SECONDS = 3600
