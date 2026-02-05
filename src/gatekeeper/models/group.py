@@ -103,8 +103,8 @@ class Group:
         """Remove a user from this group. Returns True if removed."""
         with transaction() as cursor:
             cursor.execute(
-                "DELETE FROM group_user WHERE group_name = ? AND username = ?",
-                (self.name, username),
+                "DELETE FROM group_user WHERE group_name = ? AND LOWER(username) = ?",
+                (self.name, username.lower()),
             )
             # Check if a row was actually deleted
             row = cursor.execute("SELECT changes()").fetchone()
@@ -112,20 +112,20 @@ class Group:
 
     @staticmethod
     def get_groups_for_user(username: str) -> list[str]:
-        """Get group names for a user."""
+        """Get group names for a user. Case-insensitive lookup."""
         db = get_db()
         rows = db.execute(
-            "SELECT group_name FROM group_user WHERE username = ? ORDER BY group_name",
-            (username,),
+            "SELECT group_name FROM group_user WHERE LOWER(username) = ? ORDER BY group_name",
+            (username.lower(),),
         ).fetchall()
         return [str(row[0]) for row in rows]
 
     @staticmethod
     def user_in_group(username: str, group_name: str) -> bool:
-        """Check if a user is in a specific group."""
+        """Check if a user is in a specific group. Case-insensitive username lookup."""
         db = get_db()
         row = db.execute(
-            "SELECT 1 FROM group_user WHERE group_name = ? AND username = ?",
-            (group_name, username),
+            "SELECT 1 FROM group_user WHERE group_name = ? AND LOWER(username) = ?",
+            (group_name, username.lower()),
         ).fetchone()
         return row is not None

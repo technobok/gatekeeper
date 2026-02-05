@@ -33,10 +33,10 @@ class User:
 
     @staticmethod
     def get(username: str) -> User | None:
-        """Get user by username (primary key)."""
+        """Get user by username (primary key). Case-insensitive lookup."""
         db = get_db()
         row = db.execute(
-            f"SELECT {_USER_COLUMNS} FROM user WHERE username = ?", (username.lower(),)
+            f"SELECT {_USER_COLUMNS} FROM user WHERE LOWER(username) = ?", (username.lower(),)
         ).fetchone()
         return User._from_row(row) if row else None
 
