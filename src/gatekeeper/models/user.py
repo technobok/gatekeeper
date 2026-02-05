@@ -36,7 +36,7 @@ class User:
         """Get user by username (primary key)."""
         db = get_db()
         row = db.execute(
-            f"SELECT {_USER_COLUMNS} FROM user WHERE username = ?", (username,)
+            f"SELECT {_USER_COLUMNS} FROM user WHERE username = ?", (username.lower(),)
         ).fetchone()
         return User._from_row(row) if row else None
 
@@ -57,7 +57,8 @@ class User:
         fullname: str = "",
         enabled: bool = True,
     ) -> User:
-        """Create a new user."""
+        """Create a new user. Username is stored lowercase."""
+        username = username.lower()
         now = datetime.now(UTC).isoformat()
         login_salt = secrets.token_hex(8)
 
@@ -118,6 +119,7 @@ class User:
 
     def rename(self, new_username: str) -> None:
         """Rename this user (change primary key). Updates all FK references."""
+        new_username = new_username.lower()
         now = datetime.now(UTC).isoformat()
 
         with transaction() as cursor:
