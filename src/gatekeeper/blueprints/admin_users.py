@@ -305,6 +305,7 @@ def ldap_provision():
 @admin_required
 def edit_form(username: str):
     """Show edit user form."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -316,6 +317,7 @@ def edit_form(username: str):
 @admin_required
 def edit_user(username: str):
     """Update a user."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -351,6 +353,7 @@ def edit_user(username: str):
 @admin_required
 def toggle_user(username: str):
     """Toggle user enabled/disabled (HTMX endpoint)."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -369,6 +372,7 @@ def toggle_user(username: str):
 @admin_required
 def rotate_salt(username: str):
     """Rotate user's login salt, invalidating all their sessions."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -385,6 +389,7 @@ def rotate_salt(username: str):
 @admin_required
 def delete_user(username: str):
     """Delete a user permanently."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -403,6 +408,7 @@ def delete_user(username: str):
 @admin_required
 def user_groups(username: str):
     """Show user's group memberships."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -418,6 +424,7 @@ def user_groups(username: str):
 @admin_required
 def add_user_group(username: str):
     """Add user to a group."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
@@ -447,6 +454,7 @@ def add_user_group(username: str):
 @admin_required
 def remove_user_group(username: str, group_name: str):
     """Remove user from a group."""
+    username = username.lower()
     user = User.get(username)
     if user is None:
         abort(404)
