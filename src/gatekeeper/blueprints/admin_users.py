@@ -253,6 +253,9 @@ def ldap_provision():
         # Bare username - try all configured domains
         lookup_type = "username"
         domains = current_app.config.get("LDAP_DOMAINS", [])
+        current_app.logger.debug(
+            f"LDAP provision: searching bare username '{identifier}' across domains: {domains}"
+        )
         for domain in domains:
             ldap_user = lookup_by_username(domain, identifier)
             if ldap_user:

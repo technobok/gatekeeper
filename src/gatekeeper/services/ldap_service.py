@@ -39,6 +39,9 @@ def check_ldap_configured() -> None:
 def lookup_by_username(domain: str, username: str) -> LdapUser | None:
     """Look up a user by username in the specified LDAP domain."""
     if not is_ldap_enabled() or not is_ldap_available():
+        current_app.logger.debug(
+            f"LDAP lookup skipped: enabled={is_ldap_enabled()}, available={is_ldap_available()}"
+        )
         return None
 
     import ldap
@@ -55,10 +58,16 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
     fullname_attr = current_app.config.get(f"LDAP_{domain}_FULLNAME_ATTR", "displayName")
     username_attr = current_app.config.get(f"LDAP_{domain}_USERNAME_ATTR", "sAMAccountName")
 
+    current_app.logger.debug(f"LDAP lookup: domain={domain}, server={server}, base_dn={base_dn}")
+
     if not server or not base_dn:
+        current_app.logger.warning(
+            f"LDAP config missing for domain {domain}: server={server}, base_dn={base_dn}"
+        )
         return None
 
     search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))  # type: ignore[attr-defined]
+    current_app.logger.debug(f"LDAP search filter: {search_filter}")
 
     try:
         conn = ldap.initialize(server)
@@ -70,6 +79,8 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
         else:
             conn.simple_bind_s("", "")
 
+        current_app.logger.debug("LDAP bound successfully, searching...")
+
         results = conn.search_s(
             base_dn,
             ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
@@ -78,15 +89,20 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
         )
         conn.unbind_s()
 
+        current_app.logger.debug(f"LDAP search returned {len(results)} results")
+
         for dn, attrs in results:
             if dn is None:
                 continue
+
+            current_app.logger.debug(f"LDAP result: dn={dn}, attrs={attrs}")
 
             email = _get_attr(attrs, email_attr)
             fullname = _get_attr(attrs, fullname_attr) or ""
             sam = _get_attr(attrs, username_attr) or username
 
             if not email:
+                current_app.logger.debug(f"LDAP result skipped: no email attribute ({email_attr})")
                 continue
 
             return LdapUser(
