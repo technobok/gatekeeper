@@ -32,9 +32,9 @@ class LocalBackend:
                 return None
             groups = self.get_user_groups(username)
             return User(
-                username=row[0],
-                email=row[1],
-                fullname=row[2],
+                username=str(row[0]),
+                email=str(row[1]),
+                fullname=str(row[2]),
                 enabled=bool(row[3]),
                 groups=groups,
             )
@@ -48,7 +48,7 @@ class LocalBackend:
             row = conn.execute(
                 "SELECT login_salt FROM user WHERE username = ?", (username,)
             ).fetchone()
-            return row[0] if row else None
+            return str(row[0]) if row else None
         finally:
             conn.close()
 
@@ -59,7 +59,7 @@ class LocalBackend:
                 "SELECT group_name FROM group_user WHERE username = ? ORDER BY group_name",
                 (username,),
             ).fetchall()
-            return [row[0] for row in rows]
+            return [str(row[0]) for row in rows]
         finally:
             conn.close()
 
@@ -67,7 +67,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             row = conn.execute("SELECT value FROM app_setting WHERE key = 'app_salt'").fetchone()
-            return row[0] if row else ""
+            return str(row[0]) if row else ""
         finally:
             conn.close()
 
@@ -84,9 +84,9 @@ class LocalBackend:
                 (name,),
             ).fetchall()
             return Group(
-                name=row[0],
-                description=row[1],
-                members=[r[0] for r in members_rows],
+                name=str(row[0]),
+                description=str(row[1]),
+                members=[str(r[0]) for r in members_rows],
             )
         finally:
             conn.close()
@@ -105,9 +105,9 @@ class LocalBackend:
                 if len(rows) == 1:
                     row = rows[0]
                     return User(
-                        username=row[0],
-                        email=row[1],
-                        fullname=row[2],
+                        username=str(row[0]),
+                        email=str(row[1]),
+                        fullname=str(row[2]),
                         enabled=bool(row[3]),
                     )
                 return None

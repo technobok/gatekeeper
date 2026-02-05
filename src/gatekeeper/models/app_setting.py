@@ -9,7 +9,7 @@ class AppSetting:
         """Get a setting value by key."""
         db = get_db()
         row = db.execute("SELECT value FROM app_setting WHERE key = ?", (key,)).fetchone()
-        return row[0] if row else None
+        return str(row[0]) if row else None
 
     @staticmethod
     def set(key: str, value: str, description: str | None = None) -> None:
@@ -54,4 +54,4 @@ class AppSetting:
         """Get all settings as (key, value, description) tuples."""
         db = get_db()
         rows = db.execute("SELECT key, value, description FROM app_setting ORDER BY key").fetchall()
-        return [(row[0], row[1], row[2]) for row in rows]
+        return [(str(row[0]), str(row[1]), str(row[2]) if row[2] else None) for row in rows]

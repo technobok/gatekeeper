@@ -105,7 +105,7 @@ def list_users():
             usernames,
         ).fetchall()
         for row in rows:
-            user_groups.setdefault(row[0], []).append(row[1])
+            user_groups.setdefault(str(row[0]), []).append(str(row[1]))
 
     context = {
         "users": users,
@@ -140,11 +140,19 @@ def export():
         "SELECT username, group_name FROM group_user ORDER BY group_name"
     ).fetchall()
     for gr in group_rows:
-        all_groups.setdefault(gr[0], []).append(gr[1])
+        all_groups.setdefault(str(gr[0]), []).append(str(gr[1]))
 
     headers = ["Username", "Email", "Full Name", "Groups", "Enabled", "Created", "Updated"]
     data = [
-        [r[0], r[1], r[2], ", ".join(all_groups.get(r[0], [])), "Yes" if r[3] else "No", r[4], r[5]]
+        [
+            r[0],
+            r[1],
+            r[2],
+            ", ".join(all_groups.get(str(r[0]), [])),
+            "Yes" if r[3] else "No",
+            r[4],
+            r[5],
+        ]
         for r in rows
     ]
 
@@ -211,6 +219,7 @@ def edit_user(username: str):
     user = User.get(username)
     if user is None:
         abort(404)
+    assert user is not None
 
     new_username = request.form.get("username", "").strip()
     email = request.form.get("email", "").strip()
@@ -245,6 +254,7 @@ def toggle_user(username: str):
     user = User.get(username)
     if user is None:
         abort(404)
+    assert user is not None
 
     new_state = not user.enabled
     user.update(enabled=new_state)
@@ -262,12 +272,31 @@ def rotate_salt(username: str):
     user = User.get(username)
     if user is None:
         abort(404)
+    assert user is not None
 
     user.rotate_login_salt()
     _audit_log("salt_rotated", username, "Login salt rotated, all sessions invalidated")
     flash(f"Login salt rotated for '{username}'. All sessions invalidated.", "success")
 
     return redirect(request.referrer or url_for("admin_users.list_users"))
+
+
+@bp.route("/<path:username>/delete", methods=["POST"])
+@admin_required
+def delete_user(username: str):
+    """Delete a user permanently."""
+    user = User.get(username)
+    if user is None:
+        abort(404)
+    assert user is not None
+
+    user.delete()
+    _audit_log("user_deleted", username)
+    flash(f"User '{username}' deleted.", "success")
+
+    if _is_htmx():
+        return ""
+    return redirect(url_for("admin_users.list_users"))
 
 
 @bp.route("/<path:username>/groups")

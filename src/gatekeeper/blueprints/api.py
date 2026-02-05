@@ -64,6 +64,7 @@ def auth_resolve():
     user, error = _resolve_identifier(identifier)
     if error:
         return jsonify({"error": error}), 404
+    assert user is not None
 
     return jsonify(
         {
@@ -92,6 +93,7 @@ def auth_send_magic_link():
     user, error = _resolve_identifier(identifier)
     if error:
         return jsonify({"error": error}), 404
+    assert user is not None
 
     magic_token = token_service.create_magic_link_token(user.username, redirect_url=redirect_url)
     full_callback = (

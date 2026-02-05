@@ -194,3 +194,9 @@ class User:
         else:
             row = db.execute("SELECT COUNT(*) FROM user").fetchone()
         return int(row[0]) if row else 0
+
+    def delete(self) -> None:
+        """Delete this user and all related records."""
+        with transaction() as cursor:
+            cursor.execute("DELETE FROM group_user WHERE username = ?", (self.username,))
+            cursor.execute("DELETE FROM user WHERE username = ?", (self.username,))

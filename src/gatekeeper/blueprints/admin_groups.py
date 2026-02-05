@@ -132,6 +132,7 @@ def edit_group(name: str):
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
 
     description = request.form.get("description", "").strip()
     group.update(description=description)
@@ -151,6 +152,7 @@ def delete_group(name: str):
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
 
     group.delete()
     _audit_log("group_deleted", name)
@@ -165,6 +167,7 @@ def members(name: str):
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
 
     member_names = group.get_members()
     member_users = [User.get(u) for u in member_names]
@@ -186,6 +189,7 @@ def add_member(name: str):
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
 
     username = request.form.get("username", "").strip()
     if not username:
@@ -212,6 +216,7 @@ def remove_member(name: str, username: str):
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
 
     if group.remove_member(username):
         _audit_log("member_removed", f"{name}/{username}")

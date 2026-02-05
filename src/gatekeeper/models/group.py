@@ -84,7 +84,7 @@ class Group:
             "SELECT username FROM group_user WHERE group_name = ? ORDER BY username",
             (self.name,),
         ).fetchall()
-        return [row[0] for row in rows]
+        return [str(row[0]) for row in rows]
 
     def add_member(self, username: str) -> bool:
         """Add a user to this group. Returns False if already a member."""
@@ -118,7 +118,7 @@ class Group:
             "SELECT group_name FROM group_user WHERE username = ? ORDER BY group_name",
             (username,),
         ).fetchall()
-        return [row[0] for row in rows]
+        return [str(row[0]) for row in rows]
 
     @staticmethod
     def user_in_group(username: str, group_name: str) -> bool:

@@ -18,12 +18,19 @@
                     hx-swap="outerHTML">
                 {{ "Disable" if user.enabled else "Enable" }}
             </button>
-            <button type="button" class="outline" style="padding: 4px 8px; margin: 0;"
-                    onclick="location.href='{{ url_for('admin_users.edit_form', username=user.username) }}'">Edit</button>
+            <a role="button" class="outline" style="padding: 4px 8px; margin: 0;"
+               href="{{ url_for('admin_users.edit_form', username=user.username) }}">Edit</a>
             <button class="outline secondary" style="padding: 4px 8px; margin: 0;"
                     hx-post="{{ url_for('admin_users.rotate_salt', username=user.username) }}"
                     hx-confirm="Rotate login salt for '{{ user.username }}'? This will invalidate all their active sessions.">
                 Rotate Salt
+            </button>
+            <button class="outline secondary" style="padding: 4px 8px; margin: 0;"
+                    hx-post="{{ url_for('admin_users.delete_user', username=user.username) }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    hx-confirm="Permanently delete user '{{ user.username }}'? This cannot be undone.">
+                Delete
             </button>
         </div>
     </td>

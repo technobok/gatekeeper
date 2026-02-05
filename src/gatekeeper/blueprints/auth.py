@@ -164,6 +164,7 @@ def login():
         if _is_htmx():
             return render_template("auth/login.html", next_url=next_url, identifier=identifier)
         return redirect(url_for("auth.login", next=next_url))
+    assert user is not None
 
     # Only admin users may log in
     if not Group.user_in_group(user.username, "admin"):
@@ -195,11 +196,13 @@ def verify():
     token = request.args.get("token")
     if not token:
         abort(400)
+    assert token is not None
 
     result = token_service.verify_magic_link_token(token)
     if result is None:
         flash("This login link is invalid or has expired. Please request a new one.", "error")
         return redirect(url_for("auth.login"))
+    assert result is not None
 
     user, redirect_url = result
 

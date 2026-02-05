@@ -58,12 +58,12 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
     if not server or not base_dn:
         return None
 
-    search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))
+    search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))  # type: ignore[attr-defined]
 
     try:
         conn = ldap.initialize(server)
-        conn.set_option(ldap.OPT_REFERRALS, 0)
-        conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)
+        conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
+        conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
 
         if bind_dn:
             conn.simple_bind_s(bind_dn, bind_password)
@@ -72,7 +72,7 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
 
         results = conn.search_s(
             base_dn,
-            ldap.SCOPE_SUBTREE,
+            ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
             search_filter,
             [email_attr, fullname_attr, username_attr],
         )
@@ -123,13 +123,13 @@ def lookup_by_email(email: str) -> LdapUser | None:
             continue
 
         search_filter = (
-            f"(&(objectClass=user)({email_attr}={ldap.filter.escape_filter_chars(email)}))"
+            f"(&(objectClass=user)({email_attr}={ldap.filter.escape_filter_chars(email)}))"  # type: ignore[attr-defined]
         )
 
         try:
             conn = ldap.initialize(server)
-            conn.set_option(ldap.OPT_REFERRALS, 0)
-            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)
+            conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
+            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
 
             if bind_dn:
                 conn.simple_bind_s(bind_dn, bind_password)
@@ -138,7 +138,7 @@ def lookup_by_email(email: str) -> LdapUser | None:
 
             results = conn.search_s(
                 base_dn,
-                ldap.SCOPE_SUBTREE,
+                ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
                 search_filter,
                 [email_attr, fullname_attr, username_attr],
             )

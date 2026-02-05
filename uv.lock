@@ -121,8 +121,10 @@ dependencies = [
     { name = "apsw" },
     { name = "flask" },
     { name = "gunicorn" },
+    { name = "httpx" },
     { name = "itsdangerous" },
     { name = "openpyxl" },
+    { name = "python-ldap" },
 ]
 
 [package.optional-dependencies]
@@ -131,27 +133,21 @@ dev = [
     { name = "ruff" },
     { name = "ty" },
 ]
-http = [
-    { name = "httpx" },
-]
-ldap = [
-    { name = "python-ldap" },
-]
 
 [package.metadata]
 requires-dist = [
     { name = "apsw", specifier = ">=3.45" },
     { name = "flask", specifier = ">=3.0" },
     { name = "gunicorn", specifier = ">=23.0" },
-    { name = "httpx", marker = "extra == 'http'", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "itsdangerous", specifier = ">=2.1" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pytest", marker = "extra == 'dev'" },
-    { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=3.4" },
+    { name = "python-ldap", specifier = ">=3.4" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "ty", marker = "extra == 'dev'" },
 ]
-provides-extras = ["http", "ldap", "dev"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "gunicorn"
