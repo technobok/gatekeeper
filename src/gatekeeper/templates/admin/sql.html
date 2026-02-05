@@ -23,6 +23,10 @@
 </form>
 
 {% if columns %}
+<form method="post" action="{{ url_for('admin_sql.export') }}" style="margin-bottom: 0.5rem;">
+    <input type="hidden" name="sql" value="{{ query }}">
+    <button type="submit" class="outline">Export XLSX</button>
+</form>
 <figure>
     <table>
         <thead>

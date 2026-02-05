@@ -207,6 +207,12 @@ nav small {
     margin-right: 0.5rem;
 }
 
+header nav button {
+    margin: 0;
+    padding: 0.15rem 0.6rem;
+    vertical-align: middle;
+}
+
 /* Stat cards */
 .grid article header {
     text-align: center;
