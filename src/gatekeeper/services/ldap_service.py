@@ -45,6 +45,7 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
         return None
 
     import ldap
+    import ldap.filter
 
     server = current_app.config.get(f"LDAP_{domain}_SERVER")
     base_dn = current_app.config.get(f"LDAP_{domain}_BASE_DN")
@@ -66,7 +67,7 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
         )
         return None
 
-    search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))  # type: ignore[attr-defined]
+    search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))
     current_app.logger.debug(f"LDAP search filter: {search_filter}")
 
     try:
@@ -123,6 +124,7 @@ def lookup_by_email(email: str) -> LdapUser | None:
         return None
 
     import ldap
+    import ldap.filter
 
     domains = current_app.config.get("LDAP_DOMAINS", [])
 
@@ -139,7 +141,7 @@ def lookup_by_email(email: str) -> LdapUser | None:
             continue
 
         search_filter = (
-            f"(&(objectClass=user)({email_attr}={ldap.filter.escape_filter_chars(email)}))"  # type: ignore[attr-defined]
+            f"(&(objectClass=user)({email_attr}={ldap.filter.escape_filter_chars(email)}))"
         )
 
         try:
