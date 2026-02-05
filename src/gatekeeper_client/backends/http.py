@@ -123,3 +123,22 @@ class HttpBackend:
             if resp.status_code != 200:
                 return None
             return resp.json()["token"]
+
+    def verify_magic_link(self, token: str) -> tuple[User, str] | None:
+        """Ask the server to verify a magic link token."""
+        with self._client() as client:
+            resp = client.post(
+                "/api/v1/auth/verify-magic-link",
+                json={"token": token},
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            user = User(
+                username=data["username"],
+                email=data["email"],
+                fullname=data.get("fullname", ""),
+                enabled=data.get("enabled", True),
+                groups=data.get("groups"),
+            )
+            return user, data.get("redirect_url", "/")

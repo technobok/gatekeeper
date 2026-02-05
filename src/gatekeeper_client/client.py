@@ -27,7 +27,7 @@ class GatekeeperClient:
 
     def __init__(
         self,
-        secret_key: str,
+        secret_key: str | None = None,
         db_path: str | None = None,
         server_url: str | None = None,
         api_key: str | None = None,
@@ -35,6 +35,8 @@ class GatekeeperClient:
         self.secret_key = secret_key
 
         if db_path:
+            if not secret_key:
+                raise ValueError("secret_key is required for local mode")
             from gatekeeper_client.backends.local import LocalBackend
 
             self.backend = LocalBackend(db_path)
@@ -54,6 +56,17 @@ class GatekeeperClient:
 
     def authenticate(self, cookie_value: str) -> User | None:
         """Verify an auth token from a cookie and return the User if valid."""
+        # In HTTP mode without secret_key, verify via API
+        if self.mode == "http" and not self.secret_key:
+            from gatekeeper_client.backends.http import HttpBackend
+
+            assert isinstance(self.backend, HttpBackend)
+            return self.backend.verify_token(cookie_value)
+
+        # Local verification requires secret_key
+        if not self.secret_key:
+            return None
+
         payload = decode_auth_token(self.secret_key, cookie_value)
         if payload is None:
             return None
@@ -74,7 +87,7 @@ class GatekeeperClient:
             login_salt = self.backend.get_user_login_salt(username)
             if login_salt != payload.get("us"):
                 return None
-        # In HTTP mode, we trust the server's user data
+        # In HTTP mode with secret_key, we trust the server's user data
 
         # Verify app_salt
         app_salt = self.backend.get_app_salt()
@@ -89,6 +102,17 @@ class GatekeeperClient:
 
     def verify_magic_link(self, token: str, max_age: int = 3600) -> tuple[User, str] | None:
         """Verify a magic link token. Returns (User, redirect_url) or None."""
+        # In HTTP mode without secret_key, verify via API
+        if self.mode == "http" and not self.secret_key:
+            from gatekeeper_client.backends.http import HttpBackend
+
+            assert isinstance(self.backend, HttpBackend)
+            return self.backend.verify_magic_link(token)
+
+        # Local verification requires secret_key
+        if not self.secret_key:
+            return None
+
         payload = decode_magic_link_token(self.secret_key, token, max_age=max_age)
         if payload is None:
             return None
@@ -111,6 +135,7 @@ class GatekeeperClient:
             from gatekeeper_client.backends.local import LocalBackend
 
             assert isinstance(self.backend, LocalBackend)
+            assert self.secret_key is not None  # Required for local mode
             login_salt = self.backend.get_user_login_salt(user.username) or ""
             app_salt = self.backend.get_app_salt()
             return create_auth_token(

@@ -65,11 +65,14 @@ def index():
         for r in rows
     ]
 
+    app_salt = AppSetting.get_app_salt()
+
     return render_template(
         "admin/system.html",
         user_count=user_count,
         group_count=group_count,
         key_count=key_count,
+        app_salt=app_salt,
         recent_audit=recent_audit,
     )
 
