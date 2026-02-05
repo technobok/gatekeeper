@@ -40,6 +40,7 @@ ADMIN_EMAILS = admin@example.com
 # BIND_DN = CN=svc_gatekeeper,OU=Service,DC=corp,DC=example,DC=com
 # BIND_PASSWORD = secret
 # USER_FILTER = (&(objectClass=user)(sAMAccountName={username}))
+# EMAIL_FILTER = (&(objectClass=user)(mail={email}))
 # EMAIL_ATTR = mail
 # FULLNAME_ATTR = displayName
 # USERNAME_ATTR = sAMAccountName

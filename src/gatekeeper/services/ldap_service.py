@@ -134,15 +134,17 @@ def lookup_by_email(email: str) -> LdapUser | None:
         bind_dn = current_app.config.get(f"LDAP_{domain}_BIND_DN", "")
         bind_password = current_app.config.get(f"LDAP_{domain}_BIND_PASSWORD", "")
         email_attr = current_app.config.get(f"LDAP_{domain}_EMAIL_ATTR", "mail")
+        email_filter = current_app.config.get(
+            f"LDAP_{domain}_EMAIL_FILTER",
+            f"(&(objectClass=user)({email_attr}={{email}}))",
+        )
         fullname_attr = current_app.config.get(f"LDAP_{domain}_FULLNAME_ATTR", "displayName")
         username_attr = current_app.config.get(f"LDAP_{domain}_USERNAME_ATTR", "sAMAccountName")
 
         if not server or not base_dn:
             continue
 
-        search_filter = (
-            f"(&(objectClass=user)({email_attr}={ldap.filter.escape_filter_chars(email)}))"
-        )
+        search_filter = email_filter.replace("{email}", ldap.filter.escape_filter_chars(email))
 
         try:
             conn = ldap.initialize(server)

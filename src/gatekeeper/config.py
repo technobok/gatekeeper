@@ -90,6 +90,12 @@ def load_config(app, instance_path: Path, project_root: Path) -> None:
                     app.config[f"LDAP_{domain}_EMAIL_ATTR"] = config.get(
                         section, "EMAIL_ATTR", fallback="mail"
                     )
+                    email_attr = app.config[f"LDAP_{domain}_EMAIL_ATTR"]
+                    app.config[f"LDAP_{domain}_EMAIL_FILTER"] = config.get(
+                        section,
+                        "EMAIL_FILTER",
+                        fallback=f"(&(objectClass=user)({email_attr}={{email}}))",
+                    )
                     app.config[f"LDAP_{domain}_FULLNAME_ATTR"] = config.get(
                         section, "FULLNAME_ATTR", fallback="displayName"
                     )
