@@ -17,8 +17,6 @@ def load_config(app, instance_path: Path, project_root: Path) -> None:
     config.read(config_path)
 
     if config.has_section("server"):
-        if config.has_option("server", "SECRET_KEY"):
-            app.config["SECRET_KEY"] = config.get("server", "SECRET_KEY")
         if config.has_option("server", "HOST"):
             app.config["HOST"] = config.get("server", "HOST")
         if config.has_option("server", "PORT"):

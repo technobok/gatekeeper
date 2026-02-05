@@ -216,6 +216,18 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         check_ldap_configured()
         _ensure_admins(app)
 
+        # Load SECRET_KEY from database
+        from gatekeeper.db import get_db
+        from gatekeeper.models.app_setting import AppSetting
+
+        try:
+            get_db().execute("SELECT 1 FROM app_setting LIMIT 0").fetchone()
+            db_secret_key = AppSetting.get_secret_key()
+            if db_secret_key:
+                app.config["SECRET_KEY"] = db_secret_key
+        except Exception:
+            pass  # Database not initialized yet
+
     return app
 
 

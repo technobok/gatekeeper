@@ -54,6 +54,12 @@ def init_db() -> None:
         for _ in db.execute(f.read()):
             pass
 
+    # Generate secret_key if not exists (for token signing)
+    from gatekeeper.models.app_setting import AppSetting
+
+    if not AppSetting.get("secret_key"):
+        AppSetting.rotate_secret_key()
+
 
 def get_schema_version() -> int:
     """Get the current schema version from db_metadata."""

@@ -55,3 +55,17 @@ class AppSetting:
         db = get_db()
         rows = db.execute("SELECT key, value, description FROM app_setting ORDER BY key").fetchall()
         return [(str(row[0]), str(row[1]), str(row[2]) if row[2] else None) for row in rows]
+
+    @staticmethod
+    def get_secret_key() -> str:
+        """Get the SECRET_KEY used for token signing."""
+        return AppSetting.get("secret_key") or ""
+
+    @staticmethod
+    def rotate_secret_key() -> str:
+        """Generate and store a new SECRET_KEY. Invalidates all tokens."""
+        import secrets
+
+        new_key = secrets.token_urlsafe(32)
+        AppSetting.set("secret_key", new_key, "Secret key for signing auth tokens")
+        return new_key

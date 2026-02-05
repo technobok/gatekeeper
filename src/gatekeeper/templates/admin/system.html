@@ -19,15 +19,25 @@
     </article>
 </div>
 
+<h2>Secret Key</h2>
+<p>Used for signing auth tokens. Client apps in local mode read this directly from the database.</p>
+<pre style="user-select: all; cursor: pointer;" title="Click to select">{{ secret_key }}</pre>
+
 <h2>App Salt</h2>
-<p>Used by client applications to verify auth tokens. Copy this to your client's <code>GATEKEEPER_SECRET_KEY</code> config.</p>
+<p>Session invalidation salt embedded in tokens. Rotating invalidates all sessions.</p>
 <pre style="user-select: all; cursor: pointer;" title="Click to select">{{ app_salt }}</pre>
 
 <h2>Actions</h2>
 <div role="group">
+    <form method="post" action="{{ url_for('admin_system.rotate_secret_key') }}" style="display: inline;">
+        <button type="submit" class="secondary"
+                onclick="return confirm('This will invalidate ALL user sessions. Continue?')">
+            Rotate Secret Key
+        </button>
+    </form>
     <form method="post" action="{{ url_for('admin_system.rotate_app_salt') }}" style="display: inline;">
         <button type="submit" class="secondary"
-                onclick="return confirm('This will invalidate ALL user sessions and require updating client configs. Continue?')">
+                onclick="return confirm('This will invalidate ALL user sessions. Continue?')">
             Rotate App Salt
         </button>
     </form>

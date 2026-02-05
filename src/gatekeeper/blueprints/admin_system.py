@@ -66,6 +66,7 @@ def index():
     ]
 
     app_salt = AppSetting.get_app_salt()
+    secret_key = AppSetting.get_secret_key()
 
     return render_template(
         "admin/system.html",
@@ -73,8 +74,21 @@ def index():
         group_count=group_count,
         key_count=key_count,
         app_salt=app_salt,
+        secret_key=secret_key,
         recent_audit=recent_audit,
     )
+
+
+@bp.route("/rotate-secret-key", methods=["POST"])
+@admin_required
+def rotate_secret_key():
+    """Rotate the SECRET_KEY, invalidating all sessions."""
+    new_key = AppSetting.rotate_secret_key()
+    current_app.config["SECRET_KEY"] = new_key
+    _audit_log("secret_key_rotated", details="All sessions invalidated via admin UI")
+
+    flash("Secret key rotated. All user sessions have been invalidated.", "warning")
+    return redirect(url_for("admin_system.index"))
 
 
 @bp.route("/rotate-app-salt", methods=["POST"])

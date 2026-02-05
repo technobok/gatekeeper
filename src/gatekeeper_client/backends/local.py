@@ -71,6 +71,17 @@ class LocalBackend:
         finally:
             conn.close()
 
+    def get_secret_key(self) -> str:
+        """Get SECRET_KEY from database."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT value FROM app_setting WHERE key = 'secret_key'"
+            ).fetchone()
+            return str(row[0]) if row else ""
+        finally:
+            conn.close()
+
     def get_group(self, name: str) -> Group | None:
         conn = self._connect()
         try:

@@ -12,8 +12,8 @@ class GatekeeperClient:
     - HTTP mode: remote API calls (requires httpx)
 
     Usage:
-        # Local mode
-        gk = GatekeeperClient(secret_key="...", db_path="/path/to/gatekeeper.sqlite3")
+        # Local mode (secret_key auto-read from database)
+        gk = GatekeeperClient(db_path="/path/to/gatekeeper.sqlite3")
 
         # HTTP mode
         gk = GatekeeperClient(secret_key="...", server_url="https://auth.example.com", api_key="gk_...")
@@ -32,19 +32,18 @@ class GatekeeperClient:
         server_url: str | None = None,
         api_key: str | None = None,
     ) -> None:
-        self.secret_key = secret_key
-
         if db_path:
-            if not secret_key:
-                raise ValueError("secret_key is required for local mode")
             from gatekeeper_client.backends.local import LocalBackend
 
             self.backend = LocalBackend(db_path)
+            # Auto-read secret_key from database if not provided
+            self.secret_key = secret_key or self.backend.get_secret_key()
             self.mode = "local"
         elif server_url and api_key:
             from gatekeeper_client.backends.http import HttpBackend
 
             self.backend = HttpBackend(server_url, api_key)
+            self.secret_key = secret_key
             self.mode = "http"
         else:
             raise ValueError(
