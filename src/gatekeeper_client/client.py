@@ -155,12 +155,13 @@ class GatekeeperClient:
         identifier: str,
         callback_url: str,
         redirect_url: str = "/",
+        app_name: str | None = None,
     ) -> bool:
         """Resolve an identifier and send a magic link email."""
         user = self.backend.resolve_identifier(identifier)
         if user is None:
             return False
-        return self.backend.send_magic_link_email(user, callback_url, redirect_url)
+        return self.backend.send_magic_link_email(user, callback_url, redirect_url, app_name=app_name)
 
     def get_user(self, username: str) -> User | None:
         """Look up a user by username."""

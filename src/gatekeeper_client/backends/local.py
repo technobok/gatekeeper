@@ -128,7 +128,9 @@ class LocalBackend:
             # Direct username lookup (domain\user or bare)
             return self.get_user(identifier)
 
-    def send_magic_link_email(self, user: User, callback_url: str, redirect_url: str) -> bool:
+    def send_magic_link_email(
+        self, user: User, callback_url: str, redirect_url: str, app_name: str | None = None
+    ) -> bool:
         # Local backend cannot send emails directly - that's the server's job.
         # The consuming app should handle this via its own email service.
         return False

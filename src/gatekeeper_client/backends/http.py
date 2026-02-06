@@ -151,16 +151,21 @@ class HttpBackend:
             logger.error(f"Unexpected error resolving identifier {identifier}: {e}")
             return None
 
-    def send_magic_link_email(self, user: User, callback_url: str, redirect_url: str) -> bool:
+    def send_magic_link_email(
+        self, user: User, callback_url: str, redirect_url: str, app_name: str | None = None
+    ) -> bool:
         try:
             with self._client() as client:
+                payload = {
+                    "identifier": user.username,
+                    "callback_url": callback_url,
+                    "redirect_url": redirect_url,
+                }
+                if app_name is not None:
+                    payload["app_name"] = app_name
                 resp = client.post(
                     "/api/v1/auth/send-magic-link",
-                    json={
-                        "identifier": user.username,
-                        "callback_url": callback_url,
-                        "redirect_url": redirect_url,
-                    },
+                    json=payload,
                 )
                 if resp.status_code == 401:
                     logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")

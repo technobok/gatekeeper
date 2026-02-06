@@ -107,7 +107,8 @@ def auth_send_magic_link():
 
     from gatekeeper.services.email_service import send_magic_link
 
-    sent = send_magic_link(user.email, full_callback)
+    app_name = data.get("app_name", "Gatekeeper")
+    sent = send_magic_link(user.email, full_callback, app_name=app_name)
     if not sent:
         logger.error(f"API: Failed to send magic link email to {user.email} for user {user.username}")
         return jsonify({"error": "Failed to send email"}), 500
