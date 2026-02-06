@@ -1,11 +1,14 @@
 """JSON API blueprint with API key authentication."""
 
 import json
+import logging
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
 
 from gatekeeper.db import get_db
+
+logger = logging.getLogger(__name__)
 from gatekeeper.models.api_key import ApiKey
 from gatekeeper.models.app_setting import AppSetting
 from gatekeeper.models.group import Group
@@ -106,6 +109,7 @@ def auth_send_magic_link():
 
     sent = send_magic_link(user.email, full_callback)
     if not sent:
+        logger.error(f"API: Failed to send magic link email to {user.email} for user {user.username}")
         return jsonify({"error": "Failed to send email"}), 500
 
     _audit_log("api_magic_link_sent", user.username, f"Via API to {user.email}")

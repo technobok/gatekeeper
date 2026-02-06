@@ -1,5 +1,7 @@
 """Authentication blueprint - login/verify/logout (HTMX)."""
 
+import logging
+
 from flask import (
     Blueprint,
     abort,
@@ -14,6 +16,8 @@ from flask import (
 )
 
 from gatekeeper.db import get_db
+
+logger = logging.getLogger(__name__)
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
 from gatekeeper.services import email_service, token_service
@@ -180,6 +184,7 @@ def login():
 
     sent = email_service.send_magic_link(user.email, callback_url)
     if not sent:
+        logger.error(f"Failed to send magic link email to {user.email} for user {user.username}")
         flash("Failed to send login email. Please try again.", "error")
         if _is_htmx():
             return render_template("auth/login.html", next_url=next_url, identifier=identifier)

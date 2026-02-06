@@ -1,8 +1,11 @@
 """Flask integration helpers for GatekeeperClient."""
 
+import logging
 from functools import wraps
 
 from flask import g, redirect, request, url_for
+
+logger = logging.getLogger("gatekeeper_client.flask")
 
 
 def setup_flask_integration(app, client, cookie_name: str = "gk_session") -> None:
@@ -13,7 +16,10 @@ def setup_flask_integration(app, client, cookie_name: str = "gk_session") -> Non
         g.user = None
         token = request.cookies.get(cookie_name)
         if token:
-            g.user = client.authenticate(token)
+            try:
+                g.user = client.authenticate(token)
+            except Exception as e:
+                logger.error(f"Authentication error: {e}")
 
 
 def login_required_decorator(client, f):
