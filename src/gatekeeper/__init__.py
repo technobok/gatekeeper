@@ -134,6 +134,15 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         """Ensure ADMIN_EMAILS from config have accounts and are in the admin group."""
         _ensure_admins(app)
 
+    @app.cli.command("generate-api-key")
+    @click.option("--description", "-d", default="", help="Description for the API key")
+    def generate_api_key_command(description: str) -> None:
+        """Generate a new API key and print it to the console."""
+        from gatekeeper.models.api_key import ApiKey
+
+        api_key = ApiKey.generate(description=description)
+        click.echo(api_key.key)
+
     # Register blueprints
     from gatekeeper.blueprints import (
         admin_api_keys,

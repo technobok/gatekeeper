@@ -1,4 +1,4 @@
-.PHONY: help sync install init-db import-users run rundev check clean
+.PHONY: help sync install init-db import-users bootstrap-key run rundev check clean
 
 SHELL := /bin/bash
 VENV_DIR := $(or $(VIRTUAL_ENV),.venv)
@@ -16,6 +16,8 @@ help:
 	@echo "init-db  - Create a blank database"
 	@echo "import-users FILE=path/to/users.csv"
 	@echo "           - Import users from CSV (columns: username,email,fullname)"
+	@echo "bootstrap-key [DESC=description]"
+	@echo "           - Generate an API key for service bootstrap (prints to console)"
 	@echo "run      - Run server via gunicorn (0.0.0.0:5100)"
 	@echo "rundev   - Run Flask dev server (DEV_HOST:DEV_PORT, debug=True)"
 	@echo "check    - Run ruff and ty for code quality"
@@ -31,6 +33,9 @@ init-db:
 
 import-users:
 	@$(FLASK) --app wsgi import-users $(or $(FILE),$(file))
+
+bootstrap-key:
+	@$(FLASK) --app wsgi generate-api-key --description "$(or $(DESC),bootstrap)"
 
 run:
 	@$(GUNICORN) wsgi:app --bind 0.0.0.0:5100 --workers 2 --preload
