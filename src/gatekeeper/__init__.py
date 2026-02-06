@@ -53,7 +53,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     else:
         _load_config_from_db(app)
 
-    # Allow MAIL_SENDER from environment (e.g. platform passes SMTP_FROM)
+    # Allow MAIL_SENDER from environment
     if not app.config.get("MAIL_SENDER"):
         app.config["MAIL_SENDER"] = os.environ.get("MAIL_SENDER", "")
 

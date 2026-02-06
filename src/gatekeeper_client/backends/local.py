@@ -3,13 +3,9 @@
 import json
 import logging
 import secrets
-import smtplib
-import ssl
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
 import apsw
@@ -746,7 +742,7 @@ class LocalBackend:
     ) -> bool:
         """Send a magic link email.
 
-        Tries: outbox DB -> direct SMTP -> outbox API.
+        Tries: outbox DB -> outbox HTTP API.
         """
         secret_key = self.get_secret_key()
         if not secret_key:
@@ -781,17 +777,6 @@ class LocalBackend:
                 )
                 return True
 
-        # Try direct SMTP
-        smtp_config = self._read_smtp_config()
-        if smtp_config and _send_via_smtp(
-            smtp_config, user.email, subject, body_text, body_html
-        ):
-            self._audit_log(
-                "magic_link_sent", user.username,
-                f"Via SMTP to {user.email}",
-            )
-            return True
-
         # Try outbox API
         outbox_url = self._get_setting("outbox.url")
         outbox_api_key = self._get_setting("outbox.api_key")
@@ -807,31 +792,10 @@ class LocalBackend:
                 )
                 return True
 
-        logger.warning(
-            "Email not configured (no outbox or SMTP settings)"
+        logger.error(
+            "Email not configured (no outbox DB path or outbox API settings)"
         )
         return False
-
-    def _read_smtp_config(self) -> dict[str, str | int | bool] | None:
-        """Read SMTP configuration from the database."""
-        server = self._get_setting("mail.smtp_server") or ""
-        if not server:
-            return None
-        mail_sender = self._get_setting("mail.mail_sender") or ""
-        if not mail_sender:
-            return None
-
-        port_raw = self._get_setting("mail.smtp_port") or "587"
-        tls_raw = self._get_setting("mail.smtp_use_tls") or "true"
-
-        return {
-            "server": server,
-            "port": int(port_raw),
-            "use_tls": tls_raw.lower() in ("true", "1", "yes", "on"),
-            "username": self._get_setting("mail.smtp_username") or "",
-            "password": self._get_setting("mail.smtp_password") or "",
-            "sender": mail_sender,
-        }
 
 
 # ---------------------------------------------------------------------------
@@ -921,53 +885,6 @@ def _send_via_outbox_db(
         logger.error(
             f"Failed to queue email in outbox DB to {to_email}: {e}"
         )
-        return False
-
-
-def _send_via_smtp(
-    config: dict,
-    to_email: str,
-    subject: str,
-    body_text: str,
-    body_html: str,
-) -> bool:
-    """Send email via direct SMTP."""
-    smtp_server = config["server"]
-    smtp_port = config["port"]
-    smtp_use_tls = config["use_tls"]
-    smtp_username = config["username"]
-    smtp_password = config["password"]
-    mail_sender = config["sender"]
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = mail_sender
-    msg["To"] = to_email
-    msg.attach(MIMEText(body_text, "plain"))
-    msg.attach(MIMEText(body_html, "html"))
-
-    try:
-        if smtp_port == 465:
-            context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(
-                smtp_server, smtp_port, context=context
-            ) as server:
-                if smtp_username and smtp_password and server.has_extn("auth"):
-                    server.login(smtp_username, smtp_password)
-                server.sendmail(mail_sender, to_email, msg.as_string())
-        else:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                if smtp_use_tls:
-                    context = ssl.create_default_context()
-                    server.starttls(context=context)
-                if smtp_username and smtp_password and server.has_extn("auth"):
-                    server.login(smtp_username, smtp_password)
-                server.sendmail(mail_sender, to_email, msg.as_string())
-
-        logger.info(f"Email sent to {to_email}: {subject}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {e}")
         return False
 
 

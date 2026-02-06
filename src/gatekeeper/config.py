@@ -37,13 +37,6 @@ REGISTRY: list[ConfigEntry] = [
     ConfigEntry("server.dev_port", ConfigType.INT, 5100, "Port for dev server"),
     ConfigEntry("server.debug", ConfigType.BOOL, False, "Enable Flask debug mode"),
     # -- mail --
-    ConfigEntry("mail.smtp_server", ConfigType.STRING, "", "SMTP server hostname"),
-    ConfigEntry("mail.smtp_port", ConfigType.INT, 587, "SMTP server port"),
-    ConfigEntry("mail.smtp_use_tls", ConfigType.BOOL, True, "Use TLS for SMTP"),
-    ConfigEntry("mail.smtp_username", ConfigType.STRING, "", "SMTP authentication username"),
-    ConfigEntry(
-        "mail.smtp_password", ConfigType.STRING, "", "SMTP authentication password", secret=True
-    ),
     ConfigEntry("mail.mail_sender", ConfigType.STRING, "", "Email sender address"),
     # -- outbox --
     ConfigEntry("outbox.db_path", ConfigType.STRING, "", "Path to outbox SQLite database"),
@@ -192,11 +185,6 @@ KEY_MAP: dict[str, str] = {
     "server.dev_host": "DEV_HOST",
     "server.dev_port": "DEV_PORT",
     "server.debug": "DEBUG",
-    "mail.smtp_server": "SMTP_SERVER",
-    "mail.smtp_port": "SMTP_PORT",
-    "mail.smtp_use_tls": "SMTP_USE_TLS",
-    "mail.smtp_username": "SMTP_USERNAME",
-    "mail.smtp_password": "SMTP_PASSWORD",
     "mail.mail_sender": "MAIL_SENDER",
     "outbox.db_path": "OUTBOX_DB_PATH",
     "outbox.url": "OUTBOX_URL",
@@ -231,11 +219,6 @@ INI_MAP: dict[tuple[str, str], str | None] = {
     ("server", "DEV_PORT"): "server.dev_port",
     ("server", "DEBUG"): "server.debug",
     ("database", "PATH"): None,  # handled specially -- not a config setting
-    ("mail", "SMTP_SERVER"): "mail.smtp_server",
-    ("mail", "SMTP_PORT"): "mail.smtp_port",
-    ("mail", "SMTP_USE_TLS"): "mail.smtp_use_tls",
-    ("mail", "SMTP_USERNAME"): "mail.smtp_username",
-    ("mail", "SMTP_PASSWORD"): "mail.smtp_password",
     ("mail", "MAIL_SENDER"): "mail.mail_sender",
     ("outbox", "DB_PATH"): "outbox.db_path",
     ("outbox", "URL"): "outbox.url",
