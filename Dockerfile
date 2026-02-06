@@ -11,13 +11,12 @@ WORKDIR /app
 COPY pyproject.toml pyproject-client.toml ./
 COPY src/ src/
 COPY database/ database/
-COPY wsgi.py Makefile config.ini.example ./
-RUN mkdir -p instance
+COPY wsgi.py Makefile ./
 
 RUN uv pip install --system -e . --extra dev
 
 EXPOSE 5100
 
-ENV GATEKEEPER_ROOT=/app
+ENV GATEKEEPER_DB=/data/gatekeeper.sqlite3
 
-CMD ["gunicorn", "wsgi:app", "--bind", "0.0.0.0:5100", "--workers", "2", "--preload"]
+CMD ["gatekeeper-web", "--host", "0.0.0.0", "--port", "5100"]

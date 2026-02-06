@@ -161,7 +161,9 @@ class GatekeeperClient:
         user = self.backend.resolve_identifier(identifier)
         if user is None:
             return False
-        return self.backend.send_magic_link_email(user, callback_url, redirect_url, app_name=app_name)
+        return self.backend.send_magic_link_email(
+            user, callback_url, redirect_url, app_name=app_name
+        )
 
     def get_user(self, username: str) -> User | None:
         """Look up a user by username."""

@@ -75,9 +75,7 @@ class LocalBackend:
         """Get SECRET_KEY from database."""
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT value FROM app_setting WHERE key = 'secret_key'"
-            ).fetchone()
+            row = conn.execute("SELECT value FROM app_setting WHERE key = 'secret_key'").fetchone()
             return str(row[0]) if row else ""
         finally:
             conn.close()

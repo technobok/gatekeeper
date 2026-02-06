@@ -7,145 +7,59 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import click
+import apsw
 from flask import Flask
 
-from gatekeeper.config import load_config
+from gatekeeper.config import (
+    KEY_MAP,
+    REGISTRY,
+    expand_ldap_entries,
+    flask_key_for_ldap_domain,
+    parse_value,
+)
 
 
 def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     """Application factory for Gatekeeper."""
-    if "GATEKEEPER_ROOT" in os.environ:
-        project_root = Path(os.environ["GATEKEEPER_ROOT"])
-    else:
-        source_root = Path(__file__).parent.parent.parent
-        if (source_root / "src" / "gatekeeper" / "__init__.py").exists():
-            project_root = source_root
+    # Resolve database path
+    db_path = os.environ.get("GATEKEEPER_DB")
+    if not db_path:
+        # Fallback: project root detection for local development
+        if "GATEKEEPER_ROOT" in os.environ:
+            project_root = Path(os.environ["GATEKEEPER_ROOT"])
         else:
-            project_root = Path.cwd()
+            source_root = Path(__file__).parent.parent.parent
+            if (source_root / "src" / "gatekeeper" / "__init__.py").exists():
+                project_root = source_root
+            else:
+                project_root = Path.cwd()
+        db_path = str(project_root / "instance" / "gatekeeper.sqlite3")
+        instance_path = project_root / "instance"
+    else:
+        instance_path = Path(db_path).parent
 
-    instance_path = project_root / "instance"
+    instance_path.mkdir(parents=True, exist_ok=True)
 
     app = Flask(__name__, instance_path=str(instance_path), instance_relative_config=True)
 
+    # Minimal defaults before DB config is loaded
     app.config.from_mapping(
         SECRET_KEY="dev",
-        DATABASE_PATH=str(instance_path / "gatekeeper.sqlite3"),
-        MAGIC_LINK_EXPIRY_SECONDS=3600,
-        HOST="0.0.0.0",
-        PORT=5100,
-        DEV_HOST="127.0.0.1",
-        DEV_PORT=5100,
-        DEBUG=False,
-        LDAP_ENABLED=False,
-        ADMIN_EMAILS=[],
+        DATABASE_PATH=db_path,
     )
 
-    if test_config is None:
-        load_config(app, instance_path, project_root)
-    else:
+    if test_config is not None:
         app.config.from_mapping(test_config)
+    else:
+        _load_config_from_db(app)
 
     # Allow MAIL_SENDER from environment (e.g. platform passes SMTP_FROM)
     if not app.config.get("MAIL_SENDER"):
         app.config["MAIL_SENDER"] = os.environ.get("MAIL_SENDER", "")
 
-    instance_path.mkdir(parents=True, exist_ok=True)
-
-    from gatekeeper.db import close_db, init_db_command
+    from gatekeeper.db import close_db
 
     app.teardown_appcontext(close_db)
-    app.cli.add_command(init_db_command)
-
-    @app.cli.command("create-admin")
-    @click.argument("username")
-    @click.argument("email")
-    @click.option("--fullname", default="", help="User's full name")
-    def create_admin_command(username: str, email: str, fullname: str) -> None:
-        """Create an admin user and add them to the admin group."""
-        from gatekeeper.models.group import Group
-        from gatekeeper.models.user import User
-
-        user = User.get(username)
-        if user:
-            click.echo(f"User {username} already exists.")
-        else:
-            user = User.create(username=username, email=email, fullname=fullname)
-            click.echo(f"Created user: {username}")
-
-        if Group.user_in_group(username, "admin"):
-            click.echo(f"User {username} is already in admin group.")
-        else:
-            group = Group.get("admin")
-            if group:
-                group.add_member(username)
-                click.echo(f"Added {username} to admin group.")
-
-    @app.cli.command("import-users")
-    @click.argument("csv_file", type=click.Path(exists=True))
-    def import_users_command(csv_file: str) -> None:
-        """Import users from a CSV file (columns: username,email,fullname)."""
-        import csv
-
-        from gatekeeper.db import get_db
-        from gatekeeper.models.group import Group
-        from gatekeeper.models.user import User
-
-        standard_group = Group.get("standard")
-        db = get_db()
-        now = datetime.now(UTC).isoformat()
-
-        created = 0
-        skipped = 0
-        with open(csv_file, newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                username = row.get("username", "").strip()
-                email = row.get("email", "").strip()
-                fullname = row.get("fullname", "").strip()
-
-                if not username or not email:
-                    click.echo(f"Skipping row (missing username or email): {row}")
-                    skipped += 1
-                    continue
-
-                if User.get(username):
-                    click.echo(f"Exists, skipping: {username}")
-                    skipped += 1
-                    continue
-
-                User.create(username=username, email=email, fullname=fullname)
-                if standard_group:
-                    standard_group.add_member(username)
-                db.execute(
-                    "INSERT INTO audit_log (timestamp, actor, action, target, details) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (
-                        now,
-                        "import-users",
-                        "user_created",
-                        username,
-                        f"email={email}, fullname={fullname}",
-                    ),
-                )
-                click.echo(f"Created: {username}")
-                created += 1
-
-        click.echo(f"Done. Created: {created}, Skipped: {skipped}")
-
-    @app.cli.command("ensure-admins")
-    def ensure_admins_command() -> None:
-        """Ensure ADMIN_EMAILS from config have accounts and are in the admin group."""
-        _ensure_admins(app)
-
-    @app.cli.command("generate-api-key")
-    @click.option("--description", "-d", default="", help="Description for the API key")
-    def generate_api_key_command(description: str) -> None:
-        """Generate a new API key and print it to the console."""
-        from gatekeeper.models.api_key import ApiKey
-
-        api_key = ApiKey.generate(description=description)
-        click.echo(api_key.key)
 
     # Register blueprints
     from gatekeeper.blueprints import (
@@ -229,19 +143,79 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         check_ldap_configured()
         _ensure_admins(app)
 
-        # Load SECRET_KEY from database
-        from gatekeeper.db import get_db
-        from gatekeeper.models.app_setting import AppSetting
-
-        try:
-            get_db().execute("SELECT 1 FROM app_setting LIMIT 0").fetchone()
-            db_secret_key = AppSetting.get_secret_key()
-            if db_secret_key:
-                app.config["SECRET_KEY"] = db_secret_key
-        except Exception:
-            pass  # Database not initialized yet
-
     return app
+
+
+def _load_config_from_db(app: Flask) -> None:
+    """Load configuration from the database into Flask app.config."""
+    db_path = app.config["DATABASE_PATH"]
+
+    try:
+        conn = apsw.Connection(db_path, flags=apsw.SQLITE_OPEN_READONLY)
+    except apsw.CantOpenError:
+        # Database doesn't exist yet (init-db hasn't been run)
+        return
+
+    try:
+        rows = conn.execute("SELECT key, value FROM app_setting").fetchall()
+    except apsw.SQLError:
+        # Table doesn't exist yet
+        conn.close()
+        return
+
+    db_values = {str(r[0]): str(r[1]) for r in rows}
+    conn.close()
+
+    # Load SECRET_KEY from database
+    if "secret_key" in db_values:
+        app.config["SECRET_KEY"] = db_values["secret_key"]
+
+    # Apply registry entries
+    for entry in REGISTRY:
+        flask_key = KEY_MAP.get(entry.key)
+        if not flask_key:
+            continue
+
+        raw = db_values.get(entry.key)
+        if raw is not None:
+            value = parse_value(entry, raw)
+        else:
+            value = entry.default
+
+        app.config[flask_key] = value
+
+    # Apply LDAP per-domain entries
+    domains = app.config.get("LDAP_DOMAINS", [])
+    if domains:
+        for domain_entry in expand_ldap_entries(domains):
+            raw = db_values.get(domain_entry.key)
+            if raw is not None:
+                value = parse_value(domain_entry, raw)
+            else:
+                value = domain_entry.default
+
+            # Extract field name: ldap.CORP.server -> server
+            field = domain_entry.key.split(".", 2)[2]
+            domain = domain_entry.key.split(".", 2)[1]
+
+            # Build email_filter default if empty and email_attr is available
+            if field == "email_filter" and not value:
+                email_attr = app.config.get(flask_key_for_ldap_domain(domain, "email_attr"), "mail")
+                value = f"(&(objectClass=user)({email_attr}={{email}}))"
+
+            app.config[flask_key_for_ldap_domain(domain, field)] = value
+
+    # Apply ProxyFix if any proxy values are non-zero
+    x_for = app.config.get("PROXY_X_FORWARDED_FOR", 0)
+    x_proto = app.config.get("PROXY_X_FORWARDED_PROTO", 0)
+    x_host = app.config.get("PROXY_X_FORWARDED_HOST", 0)
+    x_prefix = app.config.get("PROXY_X_FORWARDED_PREFIX", 0)
+    if any((x_for, x_proto, x_host, x_prefix)):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_prefix=x_prefix
+        )
 
 
 def _ensure_admins(app: Flask) -> None:

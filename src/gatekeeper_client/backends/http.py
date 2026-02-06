@@ -31,12 +31,16 @@ class HttpBackend:
                 if resp.status_code == 404:
                     return None
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 resp.raise_for_status()
                 data = resp.json()
                 groups_resp = client.get(f"/api/v1/users/{username}/groups")
-                groups = groups_resp.json().get("groups", []) if groups_resp.status_code == 200 else []
+                groups = (
+                    groups_resp.json().get("groups", []) if groups_resp.status_code == 200 else []
+                )
                 return User(
                     username=data["username"],
                     email=data["email"],
@@ -48,7 +52,9 @@ class HttpBackend:
             logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
             return None
         except httpx.HTTPStatusError as e:
-            logger.error(f"Gatekeeper API error getting user {username}: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"Gatekeeper API error getting user {username}: {e.response.status_code} - {e.response.text}"
+            )
             return None
         except Exception as e:
             logger.error(f"Unexpected error getting user {username} from Gatekeeper: {e}")
@@ -59,7 +65,9 @@ class HttpBackend:
             with self._client() as client:
                 resp = client.get(f"/api/v1/users/{username}/groups")
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return []
                 if resp.status_code != 200:
                     logger.warning(f"Failed to get groups for {username}: {resp.status_code}")
@@ -77,7 +85,9 @@ class HttpBackend:
             with self._client() as client:
                 resp = client.get("/api/v1/system/app-salt")
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return ""
                 resp.raise_for_status()
                 return resp.json()["app_salt"]
@@ -85,7 +95,9 @@ class HttpBackend:
             logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
             return ""
         except httpx.HTTPStatusError as e:
-            logger.error(f"Gatekeeper API error getting app_salt: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"Gatekeeper API error getting app_salt: {e.response.status_code} - {e.response.text}"
+            )
             return ""
         except Exception as e:
             logger.error(f"Unexpected error getting app_salt from Gatekeeper: {e}")
@@ -98,13 +110,17 @@ class HttpBackend:
                 if resp.status_code == 404:
                     return None
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 resp.raise_for_status()
                 data = resp.json()
                 members_resp = client.get(f"/api/v1/groups/{name}/members")
                 members = (
-                    members_resp.json().get("members", []) if members_resp.status_code == 200 else []
+                    members_resp.json().get("members", [])
+                    if members_resp.status_code == 200
+                    else []
                 )
                 return Group(
                     name=data["name"],
@@ -115,7 +131,9 @@ class HttpBackend:
             logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
             return None
         except httpx.HTTPStatusError as e:
-            logger.error(f"Gatekeeper API error getting group {name}: {e.response.status_code} - {e.response.text}")
+            logger.error(
+                f"Gatekeeper API error getting group {name}: {e.response.status_code} - {e.response.text}"
+            )
             return None
         except Exception as e:
             logger.error(f"Unexpected error getting group {name}: {e}")
@@ -129,13 +147,17 @@ class HttpBackend:
                     json={"identifier": identifier},
                 )
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 if resp.status_code == 404:
                     logger.debug(f"User not found for identifier: {identifier}")
                     return None
                 if resp.status_code != 200:
-                    logger.warning(f"Failed to resolve identifier {identifier}: {resp.status_code} - {resp.text}")
+                    logger.warning(
+                        f"Failed to resolve identifier {identifier}: {resp.status_code} - {resp.text}"
+                    )
                     return None
                 data = resp.json()
                 return User(
@@ -168,10 +190,14 @@ class HttpBackend:
                     json=payload,
                 )
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return False
                 if resp.status_code != 200:
-                    logger.error(f"Failed to send magic link for {user.username}: {resp.status_code} - {resp.text}")
+                    logger.error(
+                        f"Failed to send magic link for {user.username}: {resp.status_code} - {resp.text}"
+                    )
                     return False
                 return True
         except httpx.ConnectError as e:
@@ -190,7 +216,9 @@ class HttpBackend:
                     json={"token": token},
                 )
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 if resp.status_code != 200:
                     logger.debug(f"Token verification failed: {resp.status_code}")
@@ -219,10 +247,14 @@ class HttpBackend:
                     json={"username": username, "lifetime_seconds": lifetime_seconds},
                 )
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 if resp.status_code != 200:
-                    logger.error(f"Failed to create token for {username}: {resp.status_code} - {resp.text}")
+                    logger.error(
+                        f"Failed to create token for {username}: {resp.status_code} - {resp.text}"
+                    )
                     return None
                 return resp.json()["token"]
         except httpx.ConnectError as e:
@@ -241,7 +273,9 @@ class HttpBackend:
                     json={"token": token},
                 )
                 if resp.status_code == 401:
-                    logger.error(f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}")
+                    logger.error(
+                        f"Gatekeeper API auth failed (invalid API key?): {resp.status_code}"
+                    )
                     return None
                 if resp.status_code != 200:
                     logger.debug(f"Magic link verification failed: {resp.status_code}")

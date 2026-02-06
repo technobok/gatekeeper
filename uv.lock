@@ -119,6 +119,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "apsw" },
+    { name = "click" },
     { name = "flask" },
     { name = "gunicorn" },
     { name = "httpx" },
@@ -137,6 +138,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "apsw", specifier = ">=3.45" },
+    { name = "click", specifier = ">=8.0" },
     { name = "flask", specifier = ">=3.0" },
     { name = "gunicorn", specifier = ">=23.0" },
     { name = "httpx", specifier = ">=0.27" },
