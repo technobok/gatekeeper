@@ -46,6 +46,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     else:
         app.config.from_mapping(test_config)
 
+    # Allow MAIL_SENDER from environment (e.g. platform passes SMTP_FROM)
+    if not app.config.get("MAIL_SENDER"):
+        app.config["MAIL_SENDER"] = os.environ.get("MAIL_SENDER", "")
+
     instance_path.mkdir(parents=True, exist_ok=True)
 
     from gatekeeper.db import close_db, init_db_command

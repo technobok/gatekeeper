@@ -1,7 +1,10 @@
 """Email service for sending magic links."""
 
+import json
 import smtplib
 import ssl
+import uuid
+from datetime import UTC, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -14,6 +17,42 @@ def _try_login(server: smtplib.SMTP, username: str | None, password: str | None)
         return
     if server.has_extn("auth"):
         server.login(username, password)
+
+
+def _send_via_outbox_local(
+    to_email: str, subject: str, body_text: str, body_html: str | None = None
+) -> bool:
+    """Send email by inserting directly into the outbox SQLite database."""
+    import apsw
+
+    db_path = current_app.config.get("OUTBOX_DB_PATH", "")
+    mail_sender = current_app.config.get("MAIL_SENDER", "")
+
+    if not db_path or not mail_sender:
+        return False
+
+    now = datetime.now(UTC).isoformat()
+    msg_uuid = str(uuid.uuid4())
+    body = body_html or body_text
+    body_type = "html" if body_html else "plain"
+
+    try:
+        conn = apsw.Connection(db_path)
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute(
+            "INSERT INTO message "
+            "(uuid, status, delivery_type, from_address, to_recipients, "
+            "subject, body, body_type, source_app, created_at, updated_at) "
+            "VALUES (?, 'queued', 'email', ?, ?, ?, ?, ?, 'gatekeeper', ?, ?)",
+            (msg_uuid, mail_sender, json.dumps([to_email]), subject, body, body_type, now, now),
+        )
+        conn.close()
+        current_app.logger.info(f"Email queued in outbox DB to {to_email}: {subject}")
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Failed to queue email in outbox DB to {to_email}: {e}")
+        return False
 
 
 def _send_via_outbox(
@@ -99,10 +138,13 @@ def _send_via_smtp(
 
 
 def send_email(to_email: str, subject: str, body_text: str, body_html: str | None = None) -> bool:
-    """Send an email. Uses outbox API if configured, otherwise direct SMTP."""
+    """Send an email. Tries local outbox DB, then outbox API, then direct SMTP."""
+    outbox_db_path = current_app.config.get("OUTBOX_DB_PATH")
+    if outbox_db_path:
+        return _send_via_outbox_local(to_email, subject, body_text, body_html)
+
     outbox_url = current_app.config.get("OUTBOX_URL")
     outbox_api_key = current_app.config.get("OUTBOX_API_KEY")
-
     if outbox_url and outbox_api_key:
         return _send_via_outbox(to_email, subject, body_text, body_html)
 

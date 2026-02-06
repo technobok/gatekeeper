@@ -12,6 +12,10 @@ DEV_PORT = 5100
 PATH = instance/gatekeeper.sqlite3
 
 # Send emails via outbox (recommended)
+# Option A: local outbox DB (use when gatekeeper mounts the outbox database directly)
+# [outbox]
+# DB_PATH = /outbox-data/outbox.sqlite3
+# Option B: outbox HTTP API
 [outbox]
 URL = http://localhost:5200
 API_KEY = outbox_api_key_here
