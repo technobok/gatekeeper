@@ -1,6 +1,6 @@
 """GatekeeperClient facade - unified API for both local and HTTP modes."""
 
-from gatekeeper_client.models import User
+from gatekeeper_client.models import Group, User
 from gatekeeper_client.token import create_auth_token, decode_auth_token, decode_magic_link_token
 
 
@@ -52,6 +52,10 @@ class GatekeeperClient:
 
         self._flask_app = None
         self._cookie_name = "gk_session"
+
+    # -------------------------------------------------------------------
+    # Authentication
+    # -------------------------------------------------------------------
 
     def authenticate(self, cookie_value: str) -> User | None:
         """Verify an auth token from a cookie and return the User if valid."""
@@ -165,6 +169,18 @@ class GatekeeperClient:
             user, callback_url, redirect_url, app_name=app_name
         )
 
+    def resolve_identifier(self, identifier: str) -> User | None:
+        """Resolve a login identifier (email, domain\\user, or username) to a User.
+
+        In local mode with LDAP enabled, this will also search LDAP and
+        auto-provision users found there.
+        """
+        return self.backend.resolve_identifier(identifier)
+
+    # -------------------------------------------------------------------
+    # User management
+    # -------------------------------------------------------------------
+
     def get_user(self, username: str) -> User | None:
         """Look up a user by username."""
         return self.backend.get_user(username)
@@ -173,7 +189,95 @@ class GatekeeperClient:
         """Get group names for a user."""
         return self.backend.get_user_groups(username)
 
-    # Flask integration methods
+    def create_user(
+        self,
+        username: str,
+        email: str,
+        fullname: str = "",
+        enabled: bool = True,
+    ) -> User | None:
+        """Create a new user."""
+        return self.backend.create_user(username, email, fullname, enabled)
+
+    def update_user(
+        self,
+        username: str,
+        email: str | None = None,
+        fullname: str | None = None,
+        enabled: bool | None = None,
+    ) -> User | None:
+        """Update a user's fields. Returns updated User or None if not found."""
+        return self.backend.update_user(username, email, fullname, enabled)
+
+    def delete_user(self, username: str) -> bool:
+        """Delete a user and all their group memberships."""
+        return self.backend.delete_user(username)
+
+    def list_users(
+        self,
+        search: str | None = None,
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[User]:
+        """List users with optional filtering."""
+        return self.backend.list_users(search, enabled_only, limit, offset)
+
+    def count_users(self, enabled_only: bool = False) -> int:
+        """Count users."""
+        return self.backend.count_users(enabled_only)
+
+    def rotate_user_salt(self, username: str) -> str | None:
+        """Rotate a user's login salt, invalidating their sessions."""
+        return self.backend.rotate_user_salt(username)
+
+    # -------------------------------------------------------------------
+    # Group management
+    # -------------------------------------------------------------------
+
+    def get_group(self, name: str) -> Group | None:
+        """Look up a group by name."""
+        return self.backend.get_group(name)
+
+    def create_group(self, name: str, description: str = "") -> Group | None:
+        """Create a new group."""
+        return self.backend.create_group(name, description)
+
+    def update_group(self, name: str, description: str) -> Group | None:
+        """Update a group's description."""
+        return self.backend.update_group(name, description)
+
+    def delete_group(self, name: str) -> bool:
+        """Delete a group and all its memberships."""
+        return self.backend.delete_group(name)
+
+    def list_groups(self) -> list[Group]:
+        """List all groups."""
+        return self.backend.list_groups()
+
+    def get_group_members(self, name: str) -> list[str]:
+        """Get usernames of all members in a group."""
+        return self.backend.get_group_members(name)
+
+    def add_group_member(self, group_name: str, username: str) -> bool:
+        """Add a user to a group. Returns False if already a member."""
+        return self.backend.add_group_member(group_name, username)
+
+    def remove_group_member(self, group_name: str, username: str) -> bool:
+        """Remove a user from a group."""
+        return self.backend.remove_group_member(group_name, username)
+
+    # -------------------------------------------------------------------
+    # System
+    # -------------------------------------------------------------------
+
+    def rotate_app_salt(self) -> str:
+        """Rotate the global app salt, invalidating all sessions."""
+        return self.backend.rotate_app_salt()
+
+    # -------------------------------------------------------------------
+    # Flask integration
+    # -------------------------------------------------------------------
 
     def init_app(self, app, cookie_name: str = "gk_session") -> None:
         """Initialize Flask integration. Sets up before_request hook."""

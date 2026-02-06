@@ -311,6 +311,20 @@ def update_user(username: str):
     )
 
 
+@bp.route("/users/<path:username>", methods=["DELETE"])
+@api_key_required
+def delete_user(username: str):
+    """Delete a user."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    user.delete()
+    _audit_log("api_user_deleted", username)
+
+    return jsonify({"status": "deleted", "username": username})
+
+
 @bp.route("/users/<path:username>/rotate-salt", methods=["POST"])
 @api_key_required
 def rotate_user_salt(username: str):

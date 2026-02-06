@@ -24,6 +24,10 @@ class HttpBackend:
             timeout=self.timeout,
         )
 
+    # -------------------------------------------------------------------
+    # Read operations
+    # -------------------------------------------------------------------
+
     def get_user(self, username: str) -> User | None:
         try:
             with self._client() as client:
@@ -138,6 +142,10 @@ class HttpBackend:
         except Exception as e:
             logger.error(f"Unexpected error getting group {name}: {e}")
             return None
+
+    # -------------------------------------------------------------------
+    # Auth operations
+    # -------------------------------------------------------------------
 
     def resolve_identifier(self, identifier: str) -> User | None:
         try:
@@ -295,3 +303,381 @@ class HttpBackend:
         except Exception as e:
             logger.error(f"Unexpected error verifying magic link: {e}")
             return None
+
+    # -------------------------------------------------------------------
+    # User management
+    # -------------------------------------------------------------------
+
+    def create_user(
+        self, username: str, email: str, fullname: str = "", enabled: bool = True
+    ) -> User | None:
+        """Create a new user via API."""
+        try:
+            with self._client() as client:
+                resp = client.post(
+                    "/api/v1/users",
+                    json={
+                        "username": username,
+                        "email": email,
+                        "fullname": fullname,
+                        "enabled": enabled,
+                    },
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return None
+                if resp.status_code == 409:
+                    logger.error(f"User {username} already exists")
+                    return None
+                if resp.status_code != 201:
+                    logger.error(
+                        f"Failed to create user {username}: {resp.status_code} - {resp.text}"
+                    )
+                    return None
+                data = resp.json()
+                return User(
+                    username=data["username"],
+                    email=data["email"],
+                    fullname=data.get("fullname", ""),
+                    enabled=data.get("enabled", True),
+                )
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error creating user {username}: {e}")
+            return None
+
+    def update_user(
+        self,
+        username: str,
+        email: str | None = None,
+        fullname: str | None = None,
+        enabled: bool | None = None,
+    ) -> User | None:
+        """Update a user via API."""
+        payload = {}
+        if email is not None:
+            payload["email"] = email
+        if fullname is not None:
+            payload["fullname"] = fullname
+        if enabled is not None:
+            payload["enabled"] = enabled
+
+        if not payload:
+            return self.get_user(username)
+
+        try:
+            with self._client() as client:
+                resp = client.patch(f"/api/v1/users/{username}", json=payload)
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return None
+                if resp.status_code == 404:
+                    return None
+                resp.raise_for_status()
+                data = resp.json()
+                return User(
+                    username=data["username"],
+                    email=data["email"],
+                    fullname=data.get("fullname", ""),
+                    enabled=data.get("enabled", True),
+                )
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error updating user {username}: {e}")
+            return None
+
+    def delete_user(self, username: str) -> bool:
+        """Delete a user via API."""
+        try:
+            with self._client() as client:
+                resp = client.delete(f"/api/v1/users/{username}")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return False
+                if resp.status_code == 404:
+                    return False
+                resp.raise_for_status()
+                return True
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error deleting user {username}: {e}")
+            return False
+
+    def list_users(
+        self,
+        search: str | None = None,
+        enabled_only: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[User]:
+        """List users via API."""
+        params: dict[str, str | int] = {"limit": limit, "offset": offset}
+        if search:
+            params["search"] = search
+        if enabled_only:
+            params["enabled_only"] = "true"
+
+        try:
+            with self._client() as client:
+                resp = client.get("/api/v1/users", params=params)
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return []
+                resp.raise_for_status()
+                data = resp.json()
+                return [
+                    User(
+                        username=u["username"],
+                        email=u["email"],
+                        fullname=u.get("fullname", ""),
+                        enabled=u.get("enabled", True),
+                    )
+                    for u in data.get("users", [])
+                ]
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error listing users: {e}")
+            return []
+
+    def count_users(self, enabled_only: bool = False) -> int:
+        """Count users via API (uses list endpoint with limit=0)."""
+        params: dict[str, str | int] = {"limit": 0}
+        if enabled_only:
+            params["enabled_only"] = "true"
+
+        try:
+            with self._client() as client:
+                resp = client.get("/api/v1/users", params=params)
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return 0
+                resp.raise_for_status()
+                return resp.json().get("total", 0)
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return 0
+        except Exception as e:
+            logger.error(f"Unexpected error counting users: {e}")
+            return 0
+
+    def rotate_user_salt(self, username: str) -> str | None:
+        """Rotate a user's login salt via API."""
+        try:
+            with self._client() as client:
+                resp = client.post(f"/api/v1/users/{username}/rotate-salt")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return None
+                if resp.status_code == 404:
+                    return None
+                resp.raise_for_status()
+                return resp.json().get("status", "rotated")
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error rotating salt for {username}: {e}")
+            return None
+
+    # -------------------------------------------------------------------
+    # Group management
+    # -------------------------------------------------------------------
+
+    def create_group(self, name: str, description: str = "") -> Group | None:
+        """Create a new group via API."""
+        try:
+            with self._client() as client:
+                resp = client.post(
+                    "/api/v1/groups",
+                    json={"name": name, "description": description},
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return None
+                if resp.status_code == 409:
+                    logger.error(f"Group {name} already exists")
+                    return None
+                if resp.status_code != 201:
+                    logger.error(
+                        f"Failed to create group {name}: {resp.status_code} - {resp.text}"
+                    )
+                    return None
+                data = resp.json()
+                return Group(
+                    name=data["name"],
+                    description=data.get("description", ""),
+                )
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error creating group {name}: {e}")
+            return None
+
+    def update_group(self, name: str, description: str) -> Group | None:
+        """Update a group via API."""
+        try:
+            with self._client() as client:
+                resp = client.patch(
+                    f"/api/v1/groups/{name}",
+                    json={"description": description},
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return None
+                if resp.status_code == 404:
+                    return None
+                resp.raise_for_status()
+                data = resp.json()
+                return Group(
+                    name=data["name"],
+                    description=data.get("description", ""),
+                )
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error updating group {name}: {e}")
+            return None
+
+    def delete_group(self, name: str) -> bool:
+        """Delete a group via API."""
+        try:
+            with self._client() as client:
+                resp = client.delete(f"/api/v1/groups/{name}")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return False
+                if resp.status_code == 404:
+                    return False
+                if resp.status_code == 400:
+                    logger.error(f"Cannot delete group {name}: {resp.text}")
+                    return False
+                resp.raise_for_status()
+                return True
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error deleting group {name}: {e}")
+            return False
+
+    def list_groups(self) -> list[Group]:
+        """List all groups via API."""
+        try:
+            with self._client() as client:
+                resp = client.get("/api/v1/groups")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return []
+                resp.raise_for_status()
+                data = resp.json()
+                return [
+                    Group(
+                        name=g["name"],
+                        description=g.get("description", ""),
+                    )
+                    for g in data.get("groups", [])
+                ]
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error listing groups: {e}")
+            return []
+
+    def get_group_members(self, name: str) -> list[str]:
+        """List members of a group via API."""
+        try:
+            with self._client() as client:
+                resp = client.get(f"/api/v1/groups/{name}/members")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return []
+                if resp.status_code == 404:
+                    return []
+                resp.raise_for_status()
+                return resp.json().get("members", [])
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Unexpected error getting members of {name}: {e}")
+            return []
+
+    def add_group_member(self, group_name: str, username: str) -> bool:
+        """Add a member to a group via API."""
+        try:
+            with self._client() as client:
+                resp = client.post(
+                    f"/api/v1/groups/{group_name}/members",
+                    json={"username": username},
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return False
+                if resp.status_code in (404, 409):
+                    return False
+                if resp.status_code != 201:
+                    logger.error(
+                        f"Failed to add {username} to {group_name}: "
+                        f"{resp.status_code} - {resp.text}"
+                    )
+                    return False
+                return True
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error adding {username} to {group_name}: {e}")
+            return False
+
+    def remove_group_member(self, group_name: str, username: str) -> bool:
+        """Remove a member from a group via API."""
+        try:
+            with self._client() as client:
+                resp = client.delete(
+                    f"/api/v1/groups/{group_name}/members/{username}"
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return False
+                if resp.status_code == 404:
+                    return False
+                resp.raise_for_status()
+                return True
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error removing {username} from {group_name}: {e}")
+            return False
+
+    # -------------------------------------------------------------------
+    # System
+    # -------------------------------------------------------------------
+
+    def rotate_app_salt(self) -> str:
+        """Rotate the global app salt via API."""
+        try:
+            with self._client() as client:
+                resp = client.post("/api/v1/system/rotate-app-salt")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return ""
+                resp.raise_for_status()
+                return resp.json().get("app_salt", "")
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return ""
+        except Exception as e:
+            logger.error(f"Unexpected error rotating app salt: {e}")
+            return ""
