@@ -196,6 +196,64 @@ gatekeeper-admin config import FILE   # Import from INI
 gatekeeper-admin ensure-admins        # Ensure auth.admin_emails accounts exist
 ```
 
+## Configuration reference
+
+All settings are stored in the SQLite database (`app_setting` table) and managed via `make config-set` or `gatekeeper-admin config set`. Use `make config-list` to see current values.
+
+### General settings
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `server.host` | string | `0.0.0.0` | Bind address for production server |
+| `server.port` | int | `5100` | Port for production server |
+| `server.dev_host` | string | `127.0.0.1` | Bind address for dev server |
+| `server.dev_port` | int | `5100` | Port for dev server |
+| `server.debug` | bool | `false` | Enable Flask debug mode |
+| `mail.mail_sender` | string | | Email sender address (required for magic links) |
+| `outbox.db_path` | string | | Path to outbox SQLite database (local delivery) |
+| `outbox.url` | string | | Outbox HTTP API base URL (remote delivery) |
+| `outbox.api_key` | string | | Outbox API key |
+| `auth.magic_link_expiry_seconds` | int | `3600` | Magic link token lifetime |
+| `auth.admin_emails` | string list | | Comma-separated emails to auto-provision as admins |
+| `proxy.x_forwarded_for` | int | `0` | Trust X-Forwarded-For (hop count) |
+| `proxy.x_forwarded_proto` | int | `0` | Trust X-Forwarded-Proto (hop count) |
+| `proxy.x_forwarded_host` | int | `0` | Trust X-Forwarded-Host (hop count) |
+| `proxy.x_forwarded_prefix` | int | `0` | Trust X-Forwarded-Prefix (hop count) |
+
+### LDAP configuration
+
+Enable LDAP and list the domain names:
+
+```bash
+make config-set KEY=ldap.enabled VAL=true
+make config-set KEY=ldap.domains VAL="CORP,APAC"
+```
+
+Then configure each domain with per-domain keys using the pattern `ldap.<DOMAIN>.<field>`:
+
+```bash
+make config-set KEY=ldap.CORP.server         VAL="ldap://dc.corp.example.com"
+make config-set KEY=ldap.CORP.base_dn        VAL="DC=corp,DC=example,DC=com"
+make config-set KEY=ldap.CORP.bind_dn        VAL="CN=svc-gatekeeper,OU=Service Accounts,DC=corp,DC=example,DC=com"
+make config-set KEY=ldap.CORP.bind_password   VAL="secret"
+```
+
+The full set of per-domain fields:
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `ldap.<DOMAIN>.server` | string | | LDAP server URI (e.g. `ldap://dc.corp.example.com`) |
+| `ldap.<DOMAIN>.base_dn` | string | | Search base DN |
+| `ldap.<DOMAIN>.bind_dn` | string | | Bind DN (empty for anonymous bind) |
+| `ldap.<DOMAIN>.bind_password` | string | | Bind password |
+| `ldap.<DOMAIN>.user_filter` | string | `(&(objectClass=user)(sAMAccountName={username}))` | LDAP filter for username lookup |
+| `ldap.<DOMAIN>.email_attr` | string | `mail` | LDAP attribute for email |
+| `ldap.<DOMAIN>.email_filter` | string | auto | LDAP filter for email lookup (auto-built from `email_attr` if empty) |
+| `ldap.<DOMAIN>.fullname_attr` | string | `displayName` | LDAP attribute for full name |
+| `ldap.<DOMAIN>.username_attr` | string | `sAMAccountName` | LDAP attribute for username |
+
+Users found via LDAP are auto-provisioned into Gatekeeper and added to the `standard` group. Login identifiers can be `domain\username`, `email`, or bare `username` (searched across all domains).
+
 ## Roadmap
 
 ### Done
