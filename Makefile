@@ -25,6 +25,10 @@ help:
 	@echo "config-import FILE=path  - Import settings from INI file"
 	@echo "check    - Run ruff and ty for code quality"
 	@echo "clean    - Remove temporary files and database"
+	@echo ""
+	@echo "Database: instance/gatekeeper.sqlite3 (default)"
+	@echo "Set GATEKEEPER_DB to override, e.g.:"
+	@echo "  export GATEKEEPER_DB=/data/gatekeeper.sqlite3"
 
 sync:
 	@uv sync --extra dev
