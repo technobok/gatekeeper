@@ -18,7 +18,7 @@ Gatekeeper sits at the centre of a fleet of internal tools, providing a single p
 cd gatekeeper
 make sync
 
-# Create a blank database
+# Create a blank database (writes to instance/gatekeeper.sqlite3)
 make init-db
 
 # Set a mail sender (needed for magic links)
@@ -33,6 +33,22 @@ make rundev
 
 Open http://127.0.0.1:5100 in a browser. You'll see the login page — enter the admin email and a magic link will be sent (provided you have an outbox service configured, see below).
 
+### Database location
+
+By default the database is created at `instance/gatekeeper.sqlite3` relative to the project root. Set the `GATEKEEPER_DB` environment variable to override:
+
+```bash
+export GATEKEEPER_DB=/data/gatekeeper.sqlite3
+```
+
+The resolution order is:
+
+1. `GATEKEEPER_DB` environment variable (if set)
+2. Flask `DATABASE_PATH` config (when running inside the web server)
+3. `instance/gatekeeper.sqlite3` relative to the source tree (fallback)
+
+All CLI commands (`gatekeeper-admin`, `make config-*`, `make init-db`) and the web server use the same resolution logic — set `GATEKEEPER_DB` once and everything finds the database.
+
 ### Run with Docker
 
 ```bash
@@ -40,7 +56,7 @@ docker compose build
 docker compose up -d
 ```
 
-The container exposes port 5100 and persists data at `./instance/gatekeeper.sqlite3` via a volume mount.
+The container exposes port 5100 and persists data at `./instance/gatekeeper.sqlite3` via a volume mount. Inside the container, `GATEKEEPER_DB` is set to `/data/gatekeeper.sqlite3`.
 
 ### Production
 
