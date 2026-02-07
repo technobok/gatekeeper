@@ -198,9 +198,11 @@ def config_export(output_file: str):
         raw = db_values.get(entry.key)
         if raw is not None:
             value = raw
+            lines.append(f"make config-set KEY={entry.key} VAL='{value}'")
         else:
             value = serialize_value(entry, entry.default)
-        lines.append(f"make config-set KEY={entry.key} VAL='{value}'")
+            lines.append(f"# default: {entry.key}")
+            lines.append(f"# make config-set KEY={entry.key} VAL='{value}'")
 
     with open(output_file, "w") as f:
         f.write("\n".join(lines) + "\n")
