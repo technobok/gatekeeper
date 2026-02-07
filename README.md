@@ -178,6 +178,7 @@ gk.init_app(app)
 | `make config-list` | Show all configuration settings |
 | `make config-set KEY=... VAL=...` | Set a configuration value |
 | `make config-import FILE=...` | Import settings from an INI file |
+| `make config-export FILE=...` | Export all settings as a shell script |
 | `make check` | Run ruff (format + lint) and ty (type check) |
 | `make clean` | Remove bytecode and the database file |
 
@@ -193,6 +194,7 @@ gatekeeper-admin generate-api-key     # Generate a new API key
 gatekeeper-admin config list          # Show settings
 gatekeeper-admin config set KEY VAL   # Set a setting
 gatekeeper-admin config import FILE   # Import from INI
+gatekeeper-admin config export FILE   # Export all settings as a shell script
 gatekeeper-admin ensure-admins        # Ensure auth.admin_emails accounts exist
 ```
 

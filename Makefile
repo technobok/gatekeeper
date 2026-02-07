@@ -1,4 +1,4 @@
-.PHONY: help sync install init-db import-users bootstrap-key run rundev check clean config-list config-set config-import
+.PHONY: help sync install init-db import-users bootstrap-key run rundev check clean config-list config-set config-import config-export
 
 SHELL := /bin/bash
 VENV_DIR := $(or $(VIRTUAL_ENV),.venv)
@@ -23,6 +23,7 @@ help:
 	@echo "config-list  - Show all config settings"
 	@echo "config-set KEY=key VAL=value  - Set a config value"
 	@echo "config-import FILE=path  - Import settings from INI file"
+	@echo "config-export FILE=path  - Export all settings as a shell script"
 	@echo "check    - Run ruff and ty for code quality"
 	@echo "clean    - Remove temporary files and database"
 	@echo ""
@@ -58,6 +59,9 @@ config-set:
 
 config-import:
 	@$(ADMIN) config import $(or $(FILE),$(file))
+
+config-export:
+	@$(ADMIN) config export $(or $(FILE),$(file))
 
 check:
 	@$(RUFF) format src

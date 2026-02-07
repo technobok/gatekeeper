@@ -1,7 +1,10 @@
 """CLI entry point for gatekeeper-admin."""
 
 import configparser
+import os
+import stat
 import sys
+from datetime import UTC, datetime
 
 import click
 
@@ -167,6 +170,42 @@ def config_set(key: str, value: str):
 
     _db_set(key, value)
     click.echo(f"{key} = {value}")
+    close_standalone_db()
+
+
+@config.command("export")
+@click.argument("output_file", type=click.Path())
+def config_export(output_file: str):
+    """Export all settings as a shell script of make config-set calls."""
+    db_values = _db_get_all()
+
+    # Determine LDAP domains for expanding template entries
+    domains_raw = db_values.get("ldap.domains", "")
+    domains = [d.strip() for d in domains_raw.split(",") if d.strip()] if domains_raw else []
+
+    all_entries = list(REGISTRY)
+    if domains:
+        all_entries.extend(expand_ldap_entries(domains))
+
+    lines = [
+        "#!/bin/bash",
+        "# Configuration export for Gatekeeper",
+        f"# Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        "",
+    ]
+
+    for entry in all_entries:
+        raw = db_values.get(entry.key)
+        if raw is not None:
+            value = raw
+        else:
+            value = serialize_value(entry, entry.default)
+        lines.append(f"make config-set KEY={entry.key} VAL='{value}'")
+
+    with open(output_file, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    os.chmod(output_file, os.stat(output_file).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    click.echo(f"Exported {len(all_entries)} settings to {output_file}")
     close_standalone_db()
 
 
