@@ -55,7 +55,7 @@ config-list:
 	@$(ADMIN) config list
 
 config-set:
-	@$(ADMIN) config set $(KEY) $(VAL)
+	@$(ADMIN) config set $(KEY) '$(VAL)'
 
 config-import:
 	@$(ADMIN) config import $(or $(FILE),$(file))
