@@ -232,6 +232,38 @@ class GatekeeperClient:
         return self.backend.rotate_user_salt(username)
 
     # -------------------------------------------------------------------
+    # User properties
+    # -------------------------------------------------------------------
+
+    def get_user_properties(self, username: str, app: str) -> dict[str, str | None]:
+        """Get all properties for a user+app."""
+        return self.backend.get_user_properties(username, app)
+
+    def get_user_property(self, username: str, app: str, key: str) -> str | None:
+        """Get a single property value."""
+        return self.backend.get_user_property(username, app, key)
+
+    def set_user_properties(
+        self, username: str, app: str, properties: dict[str, str | None]
+    ) -> dict[str, str | None]:
+        """Bulk upsert properties. Returns the properties dict."""
+        return self.backend.set_user_properties(username, app, properties)
+
+    def set_user_property(
+        self, username: str, app: str, key: str, value: str | None
+    ) -> None:
+        """Set a single property."""
+        self.backend.set_user_property(username, app, key, value)
+
+    def delete_user_property(self, username: str, app: str, key: str) -> bool:
+        """Delete a single property."""
+        return self.backend.delete_user_property(username, app, key)
+
+    def delete_user_properties(self, username: str, app: str) -> int:
+        """Delete all properties for a user+app."""
+        return self.backend.delete_user_properties(username, app)
+
+    # -------------------------------------------------------------------
     # Group management
     # -------------------------------------------------------------------
 

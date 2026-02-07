@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '1');
+INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '2');
 
 CREATE TABLE IF NOT EXISTS app_setting (
     key TEXT PRIMARY KEY,
@@ -56,6 +56,16 @@ CREATE TABLE IF NOT EXISTS audit_log (
     target TEXT,
     details TEXT
 );
+
+CREATE TABLE IF NOT EXISTS user_property (
+    username TEXT NOT NULL REFERENCES user(username) ON DELETE CASCADE,
+    app      TEXT NOT NULL,
+    key      TEXT NOT NULL,
+    value    TEXT,
+    PRIMARY KEY (username, app, key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username);
 
 -- Default data
 INSERT OR IGNORE INTO app_setting VALUES ('app_salt', hex(randomblob(16)), 'Global session invalidation salt');

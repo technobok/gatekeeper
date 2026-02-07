@@ -175,3 +175,37 @@ def get_schema_version() -> int:
         return int(row[0]) if row else 0
     except apsw.SQLError:
         return 0
+
+
+CURRENT_SCHEMA_VERSION = 2
+
+
+def migrate_db() -> None:
+    """Run any pending schema migrations (Flask context required)."""
+    version = get_schema_version()
+    if version >= CURRENT_SCHEMA_VERSION:
+        return
+
+    if version < 2:
+        _migrate_v1_to_v2()
+
+
+def _migrate_v1_to_v2() -> None:
+    """Add user_property table and bump schema version to 2."""
+    with transaction() as cursor:
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS user_property ("
+            "    username TEXT NOT NULL REFERENCES user(username) ON DELETE CASCADE,"
+            "    app      TEXT NOT NULL,"
+            "    key      TEXT NOT NULL,"
+            "    value    TEXT,"
+            "    PRIMARY KEY (username, app, key)"
+            ");"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_property_username "
+            "ON user_property(username);"
+        )
+        cursor.execute(
+            "UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';"
+        )

@@ -138,8 +138,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     # Startup checks
     with app.app_context():
+        from gatekeeper.db import migrate_db
         from gatekeeper.services.ldap_service import check_ldap_configured
 
+        migrate_db()
         check_ldap_configured()
         _ensure_admins(app)
 

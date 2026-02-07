@@ -488,6 +488,123 @@ class HttpBackend:
             return None
 
     # -------------------------------------------------------------------
+    # User properties
+    # -------------------------------------------------------------------
+
+    def get_user_properties(self, username: str, app: str) -> dict[str, str | None]:
+        """Get all properties for a user+app via API."""
+        try:
+            with self._client() as client:
+                resp = client.get(f"/api/v1/users/{username}/properties/{app}")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return {}
+                if resp.status_code == 404:
+                    return {}
+                resp.raise_for_status()
+                return resp.json().get("properties", {})
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"Unexpected error getting properties for {username}: {e}")
+            return {}
+
+    def get_user_property(self, username: str, app: str, key: str) -> str | None:
+        """Get a single property value via API."""
+        try:
+            with self._client() as client:
+                resp = client.get(f"/api/v1/users/{username}/properties/{app}/{key}")
+                if resp.status_code in (401, 404):
+                    return None
+                resp.raise_for_status()
+                return resp.json().get("value")
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error getting property {key} for {username}: {e}")
+            return None
+
+    def set_user_properties(
+        self, username: str, app: str, properties: dict[str, str | None]
+    ) -> dict[str, str | None]:
+        """Bulk upsert properties via API."""
+        try:
+            with self._client() as client:
+                resp = client.put(
+                    f"/api/v1/users/{username}/properties/{app}",
+                    json={"properties": properties},
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return {}
+                resp.raise_for_status()
+                return resp.json().get("properties", {})
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"Unexpected error setting properties for {username}: {e}")
+            return {}
+
+    def set_user_property(
+        self, username: str, app: str, key: str, value: str | None
+    ) -> None:
+        """Set a single property via API."""
+        try:
+            with self._client() as client:
+                resp = client.put(
+                    f"/api/v1/users/{username}/properties/{app}/{key}",
+                    json={"value": value},
+                )
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                resp.raise_for_status()
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error setting property {key} for {username}: {e}")
+
+    def delete_user_property(self, username: str, app: str, key: str) -> bool:
+        """Delete a single property via API."""
+        try:
+            with self._client() as client:
+                resp = client.delete(f"/api/v1/users/{username}/properties/{app}/{key}")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return False
+                if resp.status_code == 404:
+                    return False
+                resp.raise_for_status()
+                return True
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error deleting property {key} for {username}: {e}")
+            return False
+
+    def delete_user_properties(self, username: str, app: str) -> int:
+        """Delete all properties for a user+app via API."""
+        try:
+            with self._client() as client:
+                resp = client.delete(f"/api/v1/users/{username}/properties/{app}")
+                if resp.status_code == 401:
+                    logger.error("Gatekeeper API auth failed (invalid API key?)")
+                    return 0
+                if resp.status_code == 404:
+                    return 0
+                resp.raise_for_status()
+                return resp.json().get("count", 0)
+        except httpx.ConnectError as e:
+            logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
+            return 0
+        except Exception as e:
+            logger.error(f"Unexpected error deleting properties for {username}: {e}")
+            return 0
+
+    # -------------------------------------------------------------------
     # Group management
     # -------------------------------------------------------------------
 

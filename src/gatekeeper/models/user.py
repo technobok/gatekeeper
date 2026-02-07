@@ -129,6 +129,10 @@ class User:
                 (new_username, self.username),
             )
             cursor.execute(
+                "UPDATE user_property SET username = ? WHERE username = ?",
+                (new_username, self.username),
+            )
+            cursor.execute(
                 "UPDATE user SET username = ?, updated_at = ? WHERE username = ?",
                 (new_username, now, self.username),
             )
@@ -200,5 +204,6 @@ class User:
     def delete(self) -> None:
         """Delete this user and all related records."""
         with transaction() as cursor:
+            cursor.execute("DELETE FROM user_property WHERE username = ?", (self.username,))
             cursor.execute("DELETE FROM group_user WHERE username = ?", (self.username,))
             cursor.execute("DELETE FROM user WHERE username = ?", (self.username,))

@@ -31,3 +31,27 @@ class GatekeeperBackend(Protocol):
     def send_magic_link_email(self, user: User, callback_url: str, redirect_url: str) -> bool:
         """Send a magic link email to the user. Returns True if sent."""
         ...
+
+    def get_user_properties(self, username: str, app: str) -> dict[str, str | None]:
+        """Get all properties for a user+app."""
+        ...
+
+    def get_user_property(self, username: str, app: str, key: str) -> str | None:
+        """Get a single property value."""
+        ...
+
+    def set_user_properties(self, username: str, app: str, properties: dict[str, str | None]) -> dict[str, str | None]:
+        """Bulk upsert properties. Returns the properties dict."""
+        ...
+
+    def set_user_property(self, username: str, app: str, key: str, value: str | None) -> None:
+        """Set a single property."""
+        ...
+
+    def delete_user_property(self, username: str, app: str, key: str) -> bool:
+        """Delete a single property. Returns True if deleted."""
+        ...
+
+    def delete_user_properties(self, username: str, app: str) -> int:
+        """Delete all properties for a user+app. Returns count deleted."""
+        ...

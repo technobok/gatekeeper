@@ -13,6 +13,7 @@ from gatekeeper.models.api_key import ApiKey
 from gatekeeper.models.app_setting import AppSetting
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
+from gatekeeper.models.user_property import UserProperty
 from gatekeeper.services import token_service
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -502,6 +503,119 @@ def remove_group_member(name: str, username: str):
 
     _audit_log("api_member_removed", f"{name}/{username}")
     return jsonify({"status": "removed"})
+
+
+# --- User property endpoints ---
+
+
+@bp.route("/users/<path:username>/properties/<app>")
+@api_key_required
+def get_user_properties(username: str, app: str):
+    """Get all properties for a user+app."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    props = UserProperty.get_all(user.username, app)
+    return jsonify({"username": user.username, "app": app, "properties": props})
+
+
+@bp.route("/users/<path:username>/properties/<app>/<key>")
+@api_key_required
+def get_user_property(username: str, app: str, key: str):
+    """Get a single property."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    prop = UserProperty.get(user.username, app, key)
+    if prop is None:
+        return jsonify({"error": "Property not found"}), 404
+
+    return jsonify(
+        {"username": user.username, "app": app, "key": key, "value": prop.value}
+    )
+
+
+@bp.route("/users/<path:username>/properties/<app>", methods=["PUT"])
+@api_key_required
+def set_user_properties(username: str, app: str):
+    """Bulk upsert properties for a user+app."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    properties = data.get("properties")
+    if not isinstance(properties, dict):
+        return jsonify({"error": "properties dict is required"}), 400
+
+    UserProperty.set_many(user.username, app, properties)
+    _audit_log(
+        "api_user_properties_set", user.username,
+        json.dumps({"app": app, "keys": list(properties.keys())}),
+    )
+
+    return jsonify({"username": user.username, "app": app, "properties": properties})
+
+
+@bp.route("/users/<path:username>/properties/<app>/<key>", methods=["PUT"])
+@api_key_required
+def set_user_property(username: str, app: str, key: str):
+    """Set a single property."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    if "value" not in data:
+        return jsonify({"error": "value is required"}), 400
+
+    value = data["value"]
+    UserProperty.set(user.username, app, key, value)
+    _audit_log(
+        "api_user_property_set", user.username,
+        json.dumps({"app": app, "key": key}),
+    )
+
+    return jsonify({"username": user.username, "app": app, "key": key, "value": value})
+
+
+@bp.route("/users/<path:username>/properties/<app>/<key>", methods=["DELETE"])
+@api_key_required
+def delete_user_property(username: str, app: str, key: str):
+    """Delete a single property."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    deleted = UserProperty.delete(user.username, app, key)
+    if not deleted:
+        return jsonify({"error": "Property not found"}), 404
+
+    _audit_log(
+        "api_user_property_deleted", user.username,
+        json.dumps({"app": app, "key": key}),
+    )
+
+    return jsonify({"status": "deleted"})
+
+
+@bp.route("/users/<path:username>/properties/<app>", methods=["DELETE"])
+@api_key_required
+def delete_user_properties(username: str, app: str):
+    """Delete all properties for a user+app."""
+    user = User.get(username)
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+
+    count = UserProperty.delete_app(user.username, app)
+    _audit_log(
+        "api_user_properties_deleted", user.username,
+        json.dumps({"app": app, "count": count}),
+    )
+
+    return jsonify({"status": "deleted", "count": count})
 
 
 # --- System endpoints ---

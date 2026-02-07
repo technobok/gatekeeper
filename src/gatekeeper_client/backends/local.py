@@ -244,8 +244,12 @@ class LocalBackend:
         return user
 
     def delete_user(self, username: str) -> bool:
-        """Delete a user and all their group memberships."""
+        """Delete a user and all their group memberships and properties."""
         with self._transaction() as (_conn, cursor):
+            cursor.execute(
+                "DELETE FROM user_property WHERE LOWER(username) = ?",
+                (username.lower(),),
+            )
             cursor.execute(
                 "DELETE FROM group_user WHERE LOWER(username) = ?",
                 (username.lower(),),
@@ -332,6 +336,105 @@ class LocalBackend:
 
         self._audit_log("user_salt_rotated", username)
         return new_salt
+
+    # -----------------------------------------------------------------------
+    # User properties
+    # -----------------------------------------------------------------------
+
+    def get_user_properties(self, username: str, app: str) -> dict[str, str | None]:
+        """Get all properties for a user+app."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT key, value FROM user_property "
+                "WHERE LOWER(username) = ? AND app = ? ORDER BY key",
+                (username.lower(), app),
+            ).fetchall()
+            return {str(r[0]): r[1] for r in rows}
+        finally:
+            conn.close()
+
+    def get_user_property(self, username: str, app: str, key: str) -> str | None:
+        """Get a single property value."""
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT value FROM user_property "
+                "WHERE LOWER(username) = ? AND app = ? AND key = ?",
+                (username.lower(), app, key),
+            ).fetchone()
+            return row[0] if row else None
+        finally:
+            conn.close()
+
+    def set_user_properties(
+        self, username: str, app: str, properties: dict[str, str | None]
+    ) -> dict[str, str | None]:
+        """Bulk upsert properties. Returns the properties dict."""
+        username = username.lower()
+        with self._transaction() as (_conn, cursor):
+            for key, value in properties.items():
+                cursor.execute(
+                    "INSERT INTO user_property (username, app, key, value) "
+                    "VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(username, app, key) DO UPDATE SET value = excluded.value",
+                    (username, app, key, value),
+                )
+        self._audit_log(
+            "user_properties_set", username,
+            json.dumps({"app": app, "keys": list(properties.keys())}),
+        )
+        return properties
+
+    def set_user_property(
+        self, username: str, app: str, key: str, value: str | None
+    ) -> None:
+        """Set a single property."""
+        with self._transaction() as (_conn, cursor):
+            cursor.execute(
+                "INSERT INTO user_property (username, app, key, value) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(username, app, key) DO UPDATE SET value = excluded.value",
+                (username.lower(), app, key, value),
+            )
+        self._audit_log(
+            "user_property_set", username,
+            json.dumps({"app": app, "key": key}),
+        )
+
+    def delete_user_property(self, username: str, app: str, key: str) -> bool:
+        """Delete a single property. Returns True if deleted."""
+        with self._transaction() as (_conn, cursor):
+            cursor.execute(
+                "DELETE FROM user_property "
+                "WHERE LOWER(username) = ? AND app = ? AND key = ?",
+                (username.lower(), app, key),
+            )
+            row = cursor.execute("SELECT changes()").fetchone()
+            deleted = bool(row and row[0] > 0)
+        if deleted:
+            self._audit_log(
+                "user_property_deleted", username,
+                json.dumps({"app": app, "key": key}),
+            )
+        return deleted
+
+    def delete_user_properties(self, username: str, app: str) -> int:
+        """Delete all properties for a user+app. Returns count deleted."""
+        with self._transaction() as (_conn, cursor):
+            cursor.execute(
+                "DELETE FROM user_property "
+                "WHERE LOWER(username) = ? AND app = ?",
+                (username.lower(), app),
+            )
+            row = cursor.execute("SELECT changes()").fetchone()
+            count = int(row[0]) if row else 0
+        if count:
+            self._audit_log(
+                "user_properties_deleted", username,
+                json.dumps({"app": app, "count": count}),
+            )
+        return count
 
     # -----------------------------------------------------------------------
     # Group management
