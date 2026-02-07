@@ -62,7 +62,7 @@ config-import:
 check:
 	@$(RUFF) format src
 	@$(RUFF) check src --fix
-	@$(TY) check src
+	@if [ -z "$$VIRTUAL_ENV" ]; then unset VIRTUAL_ENV; fi; $(TY) check src
 
 clean:
 	@find . -type f -name '*.py[co]' -delete

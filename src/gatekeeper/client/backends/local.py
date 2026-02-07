@@ -333,7 +333,7 @@ class LocalBackend:
                 "WHERE LOWER(username) = ? AND app = ? ORDER BY key",
                 (username.lower(), app),
             ).fetchall()
-            return {str(r[0]): r[1] for r in rows}
+            return {str(r[0]): str(r[1]) if r[1] is not None else None for r in rows}
         finally:
             conn.close()
 
@@ -588,8 +588,8 @@ class LocalBackend:
 
         try:
             conn = ldap.initialize(server)
-            conn.set_option(ldap.OPT_REFERRALS, 0)
-            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)
+            conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
+            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
 
             if bind_dn:
                 conn.simple_bind_s(bind_dn, bind_password)
@@ -598,7 +598,7 @@ class LocalBackend:
 
             results = conn.search_s(
                 base_dn,
-                ldap.SCOPE_SUBTREE,
+                ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
                 search_filter,
                 [email_attr, fullname_attr, username_attr],
             )
@@ -654,8 +654,8 @@ class LocalBackend:
 
             try:
                 conn = ldap.initialize(server)
-                conn.set_option(ldap.OPT_REFERRALS, 0)
-                conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)
+                conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
+                conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
 
                 if bind_dn:
                     conn.simple_bind_s(bind_dn, bind_password)
@@ -664,7 +664,7 @@ class LocalBackend:
 
                 results = conn.search_s(
                     base_dn,
-                    ldap.SCOPE_SUBTREE,
+                    ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
                     search_filter,
                     [email_attr, fullname_attr, username_attr],
                 )

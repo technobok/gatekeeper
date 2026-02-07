@@ -203,9 +203,6 @@ def _migrate_v1_to_v2() -> None:
             ");"
         )
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_user_property_username "
-            "ON user_property(username);"
+            "CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username);"
         )
-        cursor.execute(
-            "UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';"
-        )
+        cursor.execute("UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';")

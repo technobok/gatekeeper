@@ -16,11 +16,11 @@ from flask import (
 )
 
 from gatekeeper.db import get_db
-
-logger = logging.getLogger(__name__)
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
 from gatekeeper.services import email_service, token_service
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 

@@ -26,9 +26,9 @@ def main(host: str | None, port: int | None, workers: int, dev: bool):
 
         class GatekeeperApp(gunicorn.app.base.BaseApplication):
             def load_config(self):
-                self.cfg.set("bind", f"{run_host}:{run_port}")
-                self.cfg.set("workers", str(workers))
-                self.cfg.set("preload_app", True)
+                self.cfg.set("bind", f"{run_host}:{run_port}")  # type: ignore[union-attr]
+                self.cfg.set("workers", str(workers))  # type: ignore[union-attr]
+                self.cfg.set("preload_app", True)  # type: ignore[union-attr]
 
             def load(self):
                 return app

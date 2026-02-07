@@ -13,7 +13,7 @@ class UserProperty:
     value: str | None
 
     @staticmethod
-    def _from_row(row: tuple) -> "UserProperty":
+    def _from_row(row: tuple) -> UserProperty:
         return UserProperty(
             username=row[0],
             app=row[1],
@@ -22,7 +22,7 @@ class UserProperty:
         )
 
     @staticmethod
-    def get(username: str, app: str, key: str) -> "UserProperty | None":
+    def get(username: str, app: str, key: str) -> UserProperty | None:
         """Get a single property."""
         db = get_db()
         row = db.execute(
@@ -41,7 +41,7 @@ class UserProperty:
             "WHERE LOWER(username) = ? AND app = ? ORDER BY key",
             (username.lower(), app),
         ).fetchall()
-        return {str(r[0]): r[1] for r in rows}
+        return {str(r[0]): str(r[1]) if r[1] is not None else None for r in rows}
 
     @staticmethod
     def set(username: str, app: str, key: str, value: str | None) -> None:
@@ -72,8 +72,7 @@ class UserProperty:
         """Delete a single property. Returns True if a row was deleted."""
         with transaction() as cursor:
             cursor.execute(
-                "DELETE FROM user_property "
-                "WHERE LOWER(username) = ? AND app = ? AND key = ?",
+                "DELETE FROM user_property WHERE LOWER(username) = ? AND app = ? AND key = ?",
                 (username.lower(), app, key),
             )
             row = cursor.execute("SELECT changes()").fetchone()

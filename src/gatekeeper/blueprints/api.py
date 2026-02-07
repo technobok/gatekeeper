@@ -7,14 +7,14 @@ from functools import wraps
 from flask import Blueprint, g, jsonify, request
 
 from gatekeeper.db import get_db
-
-logger = logging.getLogger(__name__)
 from gatekeeper.models.api_key import ApiKey
 from gatekeeper.models.app_setting import AppSetting
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
 from gatekeeper.models.user_property import UserProperty
 from gatekeeper.services import token_service
+
+logger = logging.getLogger(__name__)
 
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -532,9 +532,7 @@ def get_user_property(username: str, app: str, key: str):
     if prop is None:
         return jsonify({"error": "Property not found"}), 404
 
-    return jsonify(
-        {"username": user.username, "app": app, "key": key, "value": prop.value}
-    )
+    return jsonify({"username": user.username, "app": app, "key": key, "value": prop.value})
 
 
 @bp.route("/users/<path:username>/properties/<app>", methods=["PUT"])
@@ -552,7 +550,8 @@ def set_user_properties(username: str, app: str):
 
     UserProperty.set_many(user.username, app, properties)
     _audit_log(
-        "api_user_properties_set", user.username,
+        "api_user_properties_set",
+        user.username,
         json.dumps({"app": app, "keys": list(properties.keys())}),
     )
 
@@ -574,7 +573,8 @@ def set_user_property(username: str, app: str, key: str):
     value = data["value"]
     UserProperty.set(user.username, app, key, value)
     _audit_log(
-        "api_user_property_set", user.username,
+        "api_user_property_set",
+        user.username,
         json.dumps({"app": app, "key": key}),
     )
 
@@ -594,7 +594,8 @@ def delete_user_property(username: str, app: str, key: str):
         return jsonify({"error": "Property not found"}), 404
 
     _audit_log(
-        "api_user_property_deleted", user.username,
+        "api_user_property_deleted",
+        user.username,
         json.dumps({"app": app, "key": key}),
     )
 
@@ -611,7 +612,8 @@ def delete_user_properties(username: str, app: str):
 
     count = UserProperty.delete_app(user.username, app)
     _audit_log(
-        "api_user_properties_deleted", user.username,
+        "api_user_properties_deleted",
+        user.username,
         json.dumps({"app": app, "count": count}),
     )
 

@@ -219,7 +219,7 @@ def _load_config_from_db(app: Flask) -> None:
     if any((x_for, x_proto, x_host, x_prefix)):
         from werkzeug.middleware.proxy_fix import ProxyFix
 
-        app.wsgi_app = ProxyFix(
+        app.wsgi_app = ProxyFix(  # type: ignore[assignment]
             app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_prefix=x_prefix
         )
 
