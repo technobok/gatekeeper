@@ -1,5 +1,9 @@
 """Gatekeeper - Shared Authentication Service."""
 
+from gatekeeper.client import GatekeeperClient
+
+__all__ = ["GatekeeperClient", "create_app"]
+
 import json
 import os
 from datetime import UTC, datetime

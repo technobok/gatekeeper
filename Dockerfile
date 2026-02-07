@@ -8,7 +8,7 @@ RUN pip install uv
 
 WORKDIR /app
 
-COPY pyproject.toml pyproject-client.toml ./
+COPY pyproject.toml ./
 COPY src/ src/
 COPY database/ database/
 COPY wsgi.py Makefile ./

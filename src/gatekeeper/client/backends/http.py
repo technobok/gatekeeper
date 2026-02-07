@@ -4,9 +4,9 @@ import logging
 
 import httpx
 
-from gatekeeper_client.models import Group, User
+from gatekeeper.client.models import Group, User
 
-logger = logging.getLogger("gatekeeper_client.http")
+logger = logging.getLogger("gatekeeper.client.http")
 
 
 class HttpBackend:
@@ -548,9 +548,7 @@ class HttpBackend:
             logger.error(f"Unexpected error setting properties for {username}: {e}")
             return {}
 
-    def set_user_property(
-        self, username: str, app: str, key: str, value: str | None
-    ) -> None:
+    def set_user_property(self, username: str, app: str, key: str, value: str | None) -> None:
         """Set a single property via API."""
         try:
             with self._client() as client:
@@ -623,9 +621,7 @@ class HttpBackend:
                     logger.error(f"Group {name} already exists")
                     return None
                 if resp.status_code != 201:
-                    logger.error(
-                        f"Failed to create group {name}: {resp.status_code} - {resp.text}"
-                    )
+                    logger.error(f"Failed to create group {name}: {resp.status_code} - {resp.text}")
                     return None
                 data = resp.json()
                 return Group(
@@ -761,9 +757,7 @@ class HttpBackend:
         """Remove a member from a group via API."""
         try:
             with self._client() as client:
-                resp = client.delete(
-                    f"/api/v1/groups/{group_name}/members/{username}"
-                )
+                resp = client.delete(f"/api/v1/groups/{group_name}/members/{username}")
                 if resp.status_code == 401:
                     logger.error("Gatekeeper API auth failed (invalid API key?)")
                     return False

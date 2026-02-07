@@ -10,10 +10,10 @@ from pathlib import Path
 
 import apsw
 
-from gatekeeper_client.models import Group, User
-from gatekeeper_client.token import create_magic_link_token
+from gatekeeper.client.models import Group, User
+from gatekeeper.client.token import create_magic_link_token
 
-logger = logging.getLogger("gatekeeper_client.local")
+logger = logging.getLogger("gatekeeper.client.local")
 
 
 class LocalBackend:
@@ -50,9 +50,7 @@ class LocalBackend:
         """Read a single value from app_setting."""
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT value FROM app_setting WHERE key = ?", (key,)
-            ).fetchone()
+            row = conn.execute("SELECT value FROM app_setting WHERE key = ?", (key,)).fetchone()
             return str(row[0]) if row else None
         finally:
             conn.close()
@@ -80,8 +78,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             row = conn.execute(
-                "SELECT username, email, fullname, enabled FROM user "
-                "WHERE LOWER(username) = ?",
+                "SELECT username, email, fullname, enabled FROM user WHERE LOWER(username) = ?",
                 (username.lower(),),
             ).fetchone()
             if row is None:
@@ -113,8 +110,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             rows = conn.execute(
-                "SELECT group_name FROM group_user "
-                "WHERE LOWER(username) = ? ORDER BY group_name",
+                "SELECT group_name FROM group_user WHERE LOWER(username) = ? ORDER BY group_name",
                 (username.lower(),),
             ).fetchall()
             return [str(row[0]) for row in rows]
@@ -124,9 +120,7 @@ class LocalBackend:
     def get_app_salt(self) -> str:
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT value FROM app_setting WHERE key = 'app_salt'"
-            ).fetchone()
+            row = conn.execute("SELECT value FROM app_setting WHERE key = 'app_salt'").fetchone()
             return str(row[0]) if row else ""
         finally:
             conn.close()
@@ -135,9 +129,7 @@ class LocalBackend:
         """Get SECRET_KEY from database."""
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT value FROM app_setting WHERE key = 'secret_key'"
-            ).fetchone()
+            row = conn.execute("SELECT value FROM app_setting WHERE key = 'secret_key'").fetchone()
             return str(row[0]) if row else ""
         finally:
             conn.close()
@@ -186,9 +178,7 @@ class LocalBackend:
             )
 
         self._audit_log("user_created", username, json.dumps({"email": email}))
-        return User(
-            username=username, email=email, fullname=fullname, enabled=enabled
-        )
+        return User(username=username, email=email, fullname=fullname, enabled=enabled)
 
     def update_user(
         self,
@@ -254,9 +244,7 @@ class LocalBackend:
                 "DELETE FROM group_user WHERE LOWER(username) = ?",
                 (username.lower(),),
             )
-            cursor.execute(
-                "DELETE FROM user WHERE LOWER(username) = ?", (username.lower(),)
-            )
+            cursor.execute("DELETE FROM user WHERE LOWER(username) = ?", (username.lower(),))
             row = cursor.execute("SELECT changes()").fetchone()
             deleted = bool(row and row[0] > 0)
 
@@ -278,9 +266,7 @@ class LocalBackend:
         if enabled_only:
             conditions.append("enabled = 1")
         if search:
-            conditions.append(
-                "(username LIKE ? OR email LIKE ? OR fullname LIKE ?)"
-            )
+            conditions.append("(username LIKE ? OR email LIKE ? OR fullname LIKE ?)")
             like = f"%{search}%"
             params.extend([like, like, like])
 
@@ -310,9 +296,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             if enabled_only:
-                row = conn.execute(
-                    "SELECT COUNT(*) FROM user WHERE enabled = 1"
-                ).fetchone()
+                row = conn.execute("SELECT COUNT(*) FROM user WHERE enabled = 1").fetchone()
             else:
                 row = conn.execute("SELECT COUNT(*) FROM user").fetchone()
             return int(row[0]) if row else 0
@@ -326,8 +310,7 @@ class LocalBackend:
 
         with self._transaction() as (_conn, cursor):
             cursor.execute(
-                "UPDATE user SET login_salt = ?, updated_at = ? "
-                "WHERE LOWER(username) = ?",
+                "UPDATE user SET login_salt = ?, updated_at = ? WHERE LOWER(username) = ?",
                 (new_salt, now, username.lower()),
             )
             row = cursor.execute("SELECT changes()").fetchone()
@@ -359,8 +342,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             row = conn.execute(
-                "SELECT value FROM user_property "
-                "WHERE LOWER(username) = ? AND app = ? AND key = ?",
+                "SELECT value FROM user_property WHERE LOWER(username) = ? AND app = ? AND key = ?",
                 (username.lower(), app, key),
             ).fetchone()
             return row[0] if row else None
@@ -381,14 +363,13 @@ class LocalBackend:
                     (username, app, key, value),
                 )
         self._audit_log(
-            "user_properties_set", username,
+            "user_properties_set",
+            username,
             json.dumps({"app": app, "keys": list(properties.keys())}),
         )
         return properties
 
-    def set_user_property(
-        self, username: str, app: str, key: str, value: str | None
-    ) -> None:
+    def set_user_property(self, username: str, app: str, key: str, value: str | None) -> None:
         """Set a single property."""
         with self._transaction() as (_conn, cursor):
             cursor.execute(
@@ -398,7 +379,8 @@ class LocalBackend:
                 (username.lower(), app, key, value),
             )
         self._audit_log(
-            "user_property_set", username,
+            "user_property_set",
+            username,
             json.dumps({"app": app, "key": key}),
         )
 
@@ -406,15 +388,15 @@ class LocalBackend:
         """Delete a single property. Returns True if deleted."""
         with self._transaction() as (_conn, cursor):
             cursor.execute(
-                "DELETE FROM user_property "
-                "WHERE LOWER(username) = ? AND app = ? AND key = ?",
+                "DELETE FROM user_property WHERE LOWER(username) = ? AND app = ? AND key = ?",
                 (username.lower(), app, key),
             )
             row = cursor.execute("SELECT changes()").fetchone()
             deleted = bool(row and row[0] > 0)
         if deleted:
             self._audit_log(
-                "user_property_deleted", username,
+                "user_property_deleted",
+                username,
                 json.dumps({"app": app, "key": key}),
             )
         return deleted
@@ -423,15 +405,15 @@ class LocalBackend:
         """Delete all properties for a user+app. Returns count deleted."""
         with self._transaction() as (_conn, cursor):
             cursor.execute(
-                "DELETE FROM user_property "
-                "WHERE LOWER(username) = ? AND app = ?",
+                "DELETE FROM user_property WHERE LOWER(username) = ? AND app = ?",
                 (username.lower(), app),
             )
             row = cursor.execute("SELECT changes()").fetchone()
             count = int(row[0]) if row else 0
         if count:
             self._audit_log(
-                "user_properties_deleted", username,
+                "user_properties_deleted",
+                username,
                 json.dumps({"app": app, "count": count}),
             )
         return count
@@ -446,8 +428,7 @@ class LocalBackend:
 
         with self._transaction() as (_conn, cursor):
             cursor.execute(
-                "INSERT INTO grp (name, description, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?)",
+                "INSERT INTO grp (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)",
                 (name, description, now, now),
             )
 
@@ -473,9 +454,7 @@ class LocalBackend:
     def delete_group(self, name: str) -> bool:
         """Delete a group and all its memberships."""
         with self._transaction() as (_conn, cursor):
-            cursor.execute(
-                "DELETE FROM group_user WHERE group_name = ?", (name,)
-            )
+            cursor.execute("DELETE FROM group_user WHERE group_name = ?", (name,))
             cursor.execute("DELETE FROM grp WHERE name = ?", (name,))
             row = cursor.execute("SELECT changes()").fetchone()
             deleted = bool(row and row[0] > 0)
@@ -488,12 +467,8 @@ class LocalBackend:
         """List all groups."""
         conn = self._connect()
         try:
-            rows = conn.execute(
-                "SELECT name, description FROM grp ORDER BY name"
-            ).fetchall()
-            return [
-                Group(name=str(r[0]), description=str(r[1])) for r in rows
-            ]
+            rows = conn.execute("SELECT name, description FROM grp ORDER BY name").fetchall()
+            return [Group(name=str(r[0]), description=str(r[1])) for r in rows]
         finally:
             conn.close()
 
@@ -502,8 +477,7 @@ class LocalBackend:
         conn = self._connect()
         try:
             rows = conn.execute(
-                "SELECT username FROM group_user WHERE group_name = ? "
-                "ORDER BY username",
+                "SELECT username FROM group_user WHERE group_name = ? ORDER BY username",
                 (name,),
             ).fetchall()
             return [str(r[0]) for r in rows]
@@ -516,8 +490,7 @@ class LocalBackend:
         try:
             with self._transaction() as (_conn, cursor):
                 cursor.execute(
-                    "INSERT INTO group_user (group_name, username, created_at) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO group_user (group_name, username, created_at) VALUES (?, ?, ?)",
                     (group_name, username.lower(), now),
                 )
             self._audit_log("member_added", f"{group_name}/{username}")
@@ -529,8 +502,7 @@ class LocalBackend:
         """Remove a user from a group."""
         with self._transaction() as (_conn, cursor):
             cursor.execute(
-                "DELETE FROM group_user "
-                "WHERE group_name = ? AND LOWER(username) = ?",
+                "DELETE FROM group_user WHERE group_name = ? AND LOWER(username) = ?",
                 (group_name, username.lower()),
             )
             row = cursor.execute("SELECT changes()").fetchone()
@@ -556,9 +528,7 @@ class LocalBackend:
                 (new_salt,),
             )
 
-        self._audit_log(
-            "app_salt_rotated", details="All sessions invalidated"
-        )
+        self._audit_log("app_salt_rotated", details="All sessions invalidated")
         return new_salt
 
     # -----------------------------------------------------------------------
@@ -604,23 +574,16 @@ class LocalBackend:
             "(&(objectClass=user)(sAMAccountName={username}))",
         )
         email_attr = config.get(f"ldap.{domain}.email_attr", "mail")
-        fullname_attr = config.get(
-            f"ldap.{domain}.fullname_attr", "displayName"
-        )
-        username_attr = config.get(
-            f"ldap.{domain}.username_attr", "sAMAccountName"
-        )
+        fullname_attr = config.get(f"ldap.{domain}.fullname_attr", "displayName")
+        username_attr = config.get(f"ldap.{domain}.username_attr", "sAMAccountName")
 
         if not server or not base_dn:
             logger.warning(
-                f"LDAP config missing for domain {domain}: "
-                f"server={server}, base_dn={base_dn}"
+                f"LDAP config missing for domain {domain}: server={server}, base_dn={base_dn}"
             )
             return None
 
-        search_filter = user_filter.replace(
-            "{username}", ldap.filter.escape_filter_chars(username)
-        )
+        search_filter = user_filter.replace("{username}", ldap.filter.escape_filter_chars(username))
         logger.debug(f"LDAP search: domain={domain}, filter={search_filter}")
 
         try:
@@ -652,9 +615,7 @@ class LocalBackend:
                 return f"{domain}\\{sam}", email, fullname
 
         except Exception as e:
-            logger.error(
-                f"LDAP lookup failed for {domain}\\{username}: {e}"
-            )
+            logger.error(f"LDAP lookup failed for {domain}\\{username}: {e}")
 
         return None
 
@@ -682,22 +643,14 @@ class LocalBackend:
             email_attr = config.get(f"ldap.{domain}.email_attr", "mail")
             email_filter = config.get(f"ldap.{domain}.email_filter", "")
             if not email_filter:
-                email_filter = (
-                    f"(&(objectClass=user)({email_attr}={{email}}))"
-                )
-            fullname_attr = config.get(
-                f"ldap.{domain}.fullname_attr", "displayName"
-            )
-            username_attr = config.get(
-                f"ldap.{domain}.username_attr", "sAMAccountName"
-            )
+                email_filter = f"(&(objectClass=user)({email_attr}={{email}}))"
+            fullname_attr = config.get(f"ldap.{domain}.fullname_attr", "displayName")
+            username_attr = config.get(f"ldap.{domain}.username_attr", "sAMAccountName")
 
             if not server or not base_dn:
                 continue
 
-            search_filter = email_filter.replace(
-                "{email}", ldap.filter.escape_filter_chars(email)
-            )
+            search_filter = email_filter.replace("{email}", ldap.filter.escape_filter_chars(email))
 
             try:
                 conn = ldap.initialize(server)
@@ -727,27 +680,19 @@ class LocalBackend:
                     return f"{domain}\\{sam}", email, fullname
 
             except Exception as e:
-                logger.error(
-                    f"LDAP email lookup failed in {domain}: {e}"
-                )
+                logger.error(f"LDAP email lookup failed in {domain}: {e}")
 
         return None
 
-    def _auto_provision(
-        self, username: str, email: str, fullname: str
-    ) -> User:
+    def _auto_provision(self, username: str, email: str, fullname: str) -> User:
         """Auto-create a user from LDAP data and add to standard group."""
         existing = self.get_user(username)
         if existing:
             return existing
 
-        user = self.create_user(
-            username=username, email=email, fullname=fullname
-        )
+        user = self.create_user(username=username, email=email, fullname=fullname)
         self.add_group_member("standard", username)
-        self._audit_log(
-            "auto_provision", username, f"LDAP auto-provisioned: {email}"
-        )
+        self._audit_log("auto_provision", username, f"LDAP auto-provisioned: {email}")
         return user
 
     def resolve_identifier(self, identifier: str) -> User | None:
@@ -799,9 +744,7 @@ class LocalBackend:
             # Try LDAP
             if ldap_enabled:
                 parts = identifier.split("\\", 1)
-                result = self._ldap_lookup_by_username(
-                    ldap_config, parts[0], parts[1]
-                )
+                result = self._ldap_lookup_by_username(ldap_config, parts[0], parts[1])
                 if result:
                     return self._auto_provision(*result)
 
@@ -818,13 +761,9 @@ class LocalBackend:
             # Try LDAP across all domains
             if ldap_enabled:
                 domains_raw = ldap_config.get("ldap.domains", "")
-                domains = [
-                    d.strip() for d in domains_raw.split(",") if d.strip()
-                ]
+                domains = [d.strip() for d in domains_raw.split(",") if d.strip()]
                 for domain in domains:
-                    result = self._ldap_lookup_by_username(
-                        ldap_config, domain, identifier
-                    )
+                    result = self._ldap_lookup_by_username(ldap_config, domain, identifier)
                     if result:
                         return self._auto_provision(*result)
 
@@ -855,9 +794,7 @@ class LocalBackend:
         app_name = app_name or "Gatekeeper"
 
         # Create the magic link token
-        magic_token = create_magic_link_token(
-            secret_key, user.username, redirect_url=redirect_url
-        )
+        magic_token = create_magic_link_token(secret_key, user.username, redirect_url=redirect_url)
         if "?" in callback_url:
             full_url = f"{callback_url}&token={magic_token}"
         else:
@@ -871,11 +808,16 @@ class LocalBackend:
         if outbox_db_path:
             mail_sender = self._get_setting("mail.mail_sender") or ""
             if mail_sender and _send_via_outbox_db(
-                outbox_db_path, mail_sender, user.email, subject,
-                body_text, body_html,
+                outbox_db_path,
+                mail_sender,
+                user.email,
+                subject,
+                body_text,
+                body_html,
             ):
                 self._audit_log(
-                    "magic_link_sent", user.username,
+                    "magic_link_sent",
+                    user.username,
                     f"Via outbox DB to {user.email}",
                 )
                 return True
@@ -886,18 +828,22 @@ class LocalBackend:
         mail_sender = self._get_setting("mail.mail_sender") or ""
         if outbox_url and outbox_api_key and mail_sender:
             if _send_via_outbox_api(
-                outbox_url, outbox_api_key, mail_sender, user.email,
-                subject, body_text, body_html,
+                outbox_url,
+                outbox_api_key,
+                mail_sender,
+                user.email,
+                subject,
+                body_text,
+                body_html,
             ):
                 self._audit_log(
-                    "magic_link_sent", user.username,
+                    "magic_link_sent",
+                    user.username,
                     f"Via outbox API to {user.email}",
                 )
                 return True
 
-        logger.error(
-            "Email not configured (no outbox DB path or outbox API settings)"
-        )
+        logger.error("Email not configured (no outbox DB path or outbox API settings)")
         return False
 
 
@@ -917,9 +863,7 @@ def _ldap_get_attr(attrs: dict, name: str) -> str | None:
     return str(val)
 
 
-def _format_magic_link_email(
-    app_name: str, magic_link: str
-) -> tuple[str, str]:
+def _format_magic_link_email(app_name: str, magic_link: str) -> tuple[str, str]:
     """Format magic link email as (text, html)."""
     body_text = (
         f"You requested to log in to {app_name}.\n\n"
@@ -929,7 +873,7 @@ def _format_magic_link_email(
     )
 
     body_html = (
-        '<!DOCTYPE html>\n<html>\n'
+        "<!DOCTYPE html>\n<html>\n"
         '<head><meta charset="utf-8"></head>\n'
         '<body style="font-family: sans-serif; max-width: 600px; '
         'margin: 0 auto; padding: 20px;">\n'
@@ -977,17 +921,20 @@ def _send_via_outbox_db(
             "VALUES (?, 'queued', 'email', ?, ?, ?, ?, 'html', "
             "'gatekeeper', ?, ?)",
             (
-                msg_uuid, mail_sender, json.dumps([to_email]),
-                subject, body_html, now, now,
+                msg_uuid,
+                mail_sender,
+                json.dumps([to_email]),
+                subject,
+                body_html,
+                now,
+                now,
             ),
         )
         conn.close()
         logger.info(f"Email queued in outbox DB to {to_email}: {subject}")
         return True
     except Exception as e:
-        logger.error(
-            f"Failed to queue email in outbox DB to {to_email}: {e}"
-        )
+        logger.error(f"Failed to queue email in outbox DB to {to_email}: {e}")
         return False
 
 
@@ -1024,16 +971,10 @@ def _send_via_outbox_api(
             timeout=10.0,
         )
         if resp.status_code == 201:
-            logger.info(
-                f"Email queued via outbox API to {to_email}: {subject}"
-            )
+            logger.info(f"Email queued via outbox API to {to_email}: {subject}")
             return True
-        logger.error(
-            f"Outbox API error: {resp.status_code} - {resp.text}"
-        )
+        logger.error(f"Outbox API error: {resp.status_code} - {resp.text}")
         return False
     except Exception as e:
-        logger.error(
-            f"Failed to send email via outbox API to {to_email}: {e}"
-        )
+        logger.error(f"Failed to send email via outbox API to {to_email}: {e}")
         return False

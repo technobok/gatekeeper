@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from gatekeeper_client.models import Group, User
+from gatekeeper.client.models import Group, User
 
 
 class GatekeeperBackend(Protocol):
@@ -40,7 +40,9 @@ class GatekeeperBackend(Protocol):
         """Get a single property value."""
         ...
 
-    def set_user_properties(self, username: str, app: str, properties: dict[str, str | None]) -> dict[str, str | None]:
+    def set_user_properties(
+        self, username: str, app: str, properties: dict[str, str | None]
+    ) -> dict[str, str | None]:
         """Bulk upsert properties. Returns the properties dict."""
         ...
 

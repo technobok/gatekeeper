@@ -5,7 +5,7 @@ from functools import wraps
 
 from flask import g, redirect, request, url_for
 
-logger = logging.getLogger("gatekeeper_client.flask")
+logger = logging.getLogger("gatekeeper.client.flask")
 
 
 def setup_flask_integration(app, client, cookie_name: str = "gk_session") -> None:

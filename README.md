@@ -51,10 +51,10 @@ make run
 
 ## Integrating with Python applications
 
-The client library can be embedded directly into a Python application for tighter integration. Install it alongside your app:
+The client library is included in the `gatekeeper` package and can be used directly by any Python application. Install from GitHub:
 
 ```bash
-pip install -e /path/to/gatekeeper   # or publish to a private index
+pip install git+ssh://git@github.com/technobok/gatekeeper.git
 ```
 
 ### Local mode (direct database access)
@@ -62,7 +62,7 @@ pip install -e /path/to/gatekeeper   # or publish to a private index
 Best when the consuming app runs on the same host or can mount the database file. The client reads the signing key directly from the database — no extra configuration needed.
 
 ```python
-from gatekeeper_client import GatekeeperClient
+from gatekeeper import GatekeeperClient
 
 gk = GatekeeperClient(db_path="/path/to/gatekeeper.sqlite3")
 gk.init_app(app, cookie_name="gk_session")
@@ -84,20 +84,13 @@ def admin_panel():
 Use when the consuming app runs on a different host. Requires an API key — generate one from the admin console under API Keys.
 
 ```python
+from gatekeeper import GatekeeperClient
+
 gk = GatekeeperClient(
     server_url="https://auth.internal.example.com",
     api_key="gk_...",
 )
 gk.init_app(app)
-```
-
-The client library has optional dependency groups — install only what you need:
-
-```bash
-pip install gatekeeper-client[local]   # apsw for direct DB access
-pip install gatekeeper-client[http]    # httpx for remote calls
-pip install gatekeeper-client[flask]   # Flask integration helpers
-pip install gatekeeper-client[all]     # everything
 ```
 
 ## Architecture

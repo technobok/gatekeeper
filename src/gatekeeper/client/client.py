@@ -1,7 +1,7 @@
 """GatekeeperClient facade - unified API for both local and HTTP modes."""
 
-from gatekeeper_client.models import Group, User
-from gatekeeper_client.token import create_auth_token, decode_auth_token, decode_magic_link_token
+from gatekeeper.client.models import Group, User
+from gatekeeper.client.token import create_auth_token, decode_auth_token, decode_magic_link_token
 
 
 class GatekeeperClient:
@@ -33,14 +33,14 @@ class GatekeeperClient:
         api_key: str | None = None,
     ) -> None:
         if db_path:
-            from gatekeeper_client.backends.local import LocalBackend
+            from gatekeeper.client.backends.local import LocalBackend
 
             self.backend = LocalBackend(db_path)
             # Auto-read secret_key from database if not provided
             self.secret_key = secret_key or self.backend.get_secret_key()
             self.mode = "local"
         elif server_url and api_key:
-            from gatekeeper_client.backends.http import HttpBackend
+            from gatekeeper.client.backends.http import HttpBackend
 
             self.backend = HttpBackend(server_url, api_key)
             self.secret_key = secret_key
@@ -61,7 +61,7 @@ class GatekeeperClient:
         """Verify an auth token from a cookie and return the User if valid."""
         # In HTTP mode without secret_key, verify via API
         if self.mode == "http" and not self.secret_key:
-            from gatekeeper_client.backends.http import HttpBackend
+            from gatekeeper.client.backends.http import HttpBackend
 
             assert isinstance(self.backend, HttpBackend)
             return self.backend.verify_token(cookie_value)
@@ -84,7 +84,7 @@ class GatekeeperClient:
 
         # Verify login_salt
         if self.mode == "local":
-            from gatekeeper_client.backends.local import LocalBackend
+            from gatekeeper.client.backends.local import LocalBackend
 
             assert isinstance(self.backend, LocalBackend)
             login_salt = self.backend.get_user_login_salt(username)
@@ -107,7 +107,7 @@ class GatekeeperClient:
         """Verify a magic link token. Returns (User, redirect_url) or None."""
         # In HTTP mode without secret_key, verify via API
         if self.mode == "http" and not self.secret_key:
-            from gatekeeper_client.backends.http import HttpBackend
+            from gatekeeper.client.backends.http import HttpBackend
 
             assert isinstance(self.backend, HttpBackend)
             return self.backend.verify_magic_link(token)
@@ -135,7 +135,7 @@ class GatekeeperClient:
     def create_auth_token(self, user: User, lifetime_seconds: int = 86400) -> str:
         """Create a signed auth token for a user."""
         if self.mode == "local":
-            from gatekeeper_client.backends.local import LocalBackend
+            from gatekeeper.client.backends.local import LocalBackend
 
             assert isinstance(self.backend, LocalBackend)
             assert self.secret_key is not None  # Required for local mode
@@ -146,7 +146,7 @@ class GatekeeperClient:
             )
         else:
             # HTTP mode: ask the server to create the token
-            from gatekeeper_client.backends.http import HttpBackend
+            from gatekeeper.client.backends.http import HttpBackend
 
             assert isinstance(self.backend, HttpBackend)
             token = self.backend.create_token(user.username, lifetime_seconds)
@@ -249,9 +249,7 @@ class GatekeeperClient:
         """Bulk upsert properties. Returns the properties dict."""
         return self.backend.set_user_properties(username, app, properties)
 
-    def set_user_property(
-        self, username: str, app: str, key: str, value: str | None
-    ) -> None:
+    def set_user_property(self, username: str, app: str, key: str, value: str | None) -> None:
         """Set a single property."""
         self.backend.set_user_property(username, app, key, value)
 
@@ -313,7 +311,7 @@ class GatekeeperClient:
 
     def init_app(self, app, cookie_name: str = "gk_session") -> None:
         """Initialize Flask integration. Sets up before_request hook."""
-        from gatekeeper_client.flask_integration import setup_flask_integration
+        from gatekeeper.client.flask_integration import setup_flask_integration
 
         self._flask_app = app
         self._cookie_name = cookie_name
@@ -321,12 +319,12 @@ class GatekeeperClient:
 
     def login_required(self, f):
         """Decorator: require authentication."""
-        from gatekeeper_client.flask_integration import login_required_decorator
+        from gatekeeper.client.flask_integration import login_required_decorator
 
         return login_required_decorator(self, f)
 
     def group_required(self, group_name: str):
         """Decorator: require group membership."""
-        from gatekeeper_client.flask_integration import group_required_decorator
+        from gatekeeper.client.flask_integration import group_required_decorator
 
         return group_required_decorator(self, group_name)
