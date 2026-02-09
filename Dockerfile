@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends curl gcc libldap2-dev libsasl2-dev && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install uv
