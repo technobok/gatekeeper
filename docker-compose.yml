@@ -4,7 +4,7 @@ services:
     container_name: gatekeeper-init
     command: ["sh", "-c", "gatekeeper-admin init-db && gatekeeper-admin config import /etc/gatekeeper/gatekeeper.ini"]
     volumes:
-      - gatekeeper-data:/data
+      - ./instance:/data
       - ./config.ini:/etc/gatekeeper/gatekeeper.ini:ro
     environment:
       - GATEKEEPER_DB=/data/gatekeeper.sqlite3
@@ -17,8 +17,8 @@ services:
     build: .
     container_name: gatekeeper
     volumes:
-      - gatekeeper-data:/data
-      - outbox-data:/outbox-data
+      - ./instance:/data
+      - ${OUTBOX_INSTANCE:-../outbox/instance}:/outbox-data
     environment:
       - GATEKEEPER_DB=/data/gatekeeper.sqlite3
       - MAIL_SENDER=${SMTP_FROM:-}
@@ -26,12 +26,6 @@ services:
     networks:
       - platform-net
     restart: unless-stopped
-
-volumes:
-  gatekeeper-data:
-    external: true
-  outbox-data:
-    external: true
 
 networks:
   platform-net:

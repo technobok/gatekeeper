@@ -70,6 +70,8 @@ check:
 
 docker-up:
 	@test -f config.ini || { echo "Error: config.ini not found — copy from config.ini.example first"; exit 1; }
+	@mkdir -p instance
+	@test -d "$${OUTBOX_INSTANCE:-../outbox/instance}" || { echo "Error: outbox instance dir not found at $${OUTBOX_INSTANCE:-../outbox/instance}"; echo "  Run 'mkdir -p ../outbox/instance' or set OUTBOX_INSTANCE"; exit 1; }
 	docker compose up -d
 
 docker-down:
