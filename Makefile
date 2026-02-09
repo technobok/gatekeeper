@@ -1,4 +1,4 @@
-.PHONY: help sync install init-db import-users bootstrap-key run rundev check clean config-list config-set config-import config-export
+.PHONY: help sync install init-db import-users bootstrap-key run rundev check clean config-list config-set config-import config-export docker-up docker-down
 
 SHELL := /bin/bash
 VENV_DIR := $(or $(VIRTUAL_ENV),.venv)
@@ -67,6 +67,13 @@ check:
 	@$(RUFF) format src
 	@$(RUFF) check src --fix
 	@if [ -z "$$VIRTUAL_ENV" ]; then unset VIRTUAL_ENV; fi; $(TY) check src
+
+docker-up:
+	@test -f config.ini || { echo "Error: config.ini not found — copy from config.ini.example first"; exit 1; }
+	docker compose up -d
+
+docker-down:
+	docker compose down
 
 clean:
 	@find . -type f -name '*.py[co]' -delete
