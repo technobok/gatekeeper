@@ -51,14 +51,20 @@ All CLI commands (`gatekeeper-admin`, `make config-*`, `make init-db`) and the w
 
 ### Run with Docker
 
+The `docker-compose.yml` joins a shared Docker network (`platform-net`) for use behind a reverse proxy.
+
 ```bash
+# First time only — initialize the database
+docker compose --profile init up init
+
+# Build and start
 docker compose build
 docker compose up -d
 ```
 
-The container exposes port 5100 and persists data at `./instance/gatekeeper.sqlite3` via a volume mount. Inside the container, `GATEKEEPER_DB` is set to `/data/gatekeeper.sqlite3`.
+Inside the container, `GATEKEEPER_DB` is set to `/data/gatekeeper.sqlite3`. Data is persisted in the `gatekeeper-data` Docker volume.
 
-### Production
+### Production (without Docker)
 
 ```bash
 # Gunicorn, 2 workers, bound to 0.0.0.0:5100
