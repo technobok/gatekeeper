@@ -11,3 +11,4 @@ config.ini
 *.sqlite3-shm
 .ruff_cache/
 .ty_cache/
+docker-compose.override.yml
