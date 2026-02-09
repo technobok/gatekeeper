@@ -13,7 +13,7 @@ COPY src/ src/
 COPY database/ database/
 COPY wsgi.py Makefile ./
 
-RUN uv pip install --system -e . --extra dev
+RUN uv pip install --system -e ".[dev]"
 
 EXPOSE 5100
 
