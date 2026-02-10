@@ -217,6 +217,7 @@ All settings are stored in the SQLite database (`app_setting` table) and managed
 | `server.dev_host` | string | `127.0.0.1` | Bind address for dev server |
 | `server.dev_port` | int | `5100` | Port for dev server |
 | `server.debug` | bool | `false` | Enable Flask debug mode |
+| `server.login_url` | string | | Public URL of Gatekeeper's login page for centralised SSO (see below) |
 | `mail.mail_sender` | string | | Email sender address (required for magic links) |
 | `outbox.db_path` | string | | Path to outbox SQLite database (local delivery) |
 | `outbox.url` | string | | Outbox HTTP API base URL (remote delivery) |
@@ -262,6 +263,42 @@ The full set of per-domain fields:
 
 Users found via LDAP are auto-provisioned into Gatekeeper and added to the `standard` group. Login identifiers can be `domain\username`, `email`, or bare `username` (searched across all domains).
 
+### Centralised SSO login
+
+When multiple applications use Gatekeeper for authentication, each can delegate login to Gatekeeper's own login page instead of implementing its own login form. This is useful when running in Docker, where applications don't have direct access to the outbox database needed to send magic-link emails.
+
+**How it works:**
+
+1. Set `server.login_url` in Gatekeeper to the public URL of the login page:
+
+   ```bash
+   make config-set KEY=server.login_url VAL=https://example.com/gatekeeper/auth/login
+   ```
+
+2. When an unauthenticated user visits an application, the app redirects to:
+
+   ```
+   {server.login_url}?app_name=MyApp&callback_url=https://myapp.example.com/auth/verify&next=/dashboard
+   ```
+
+3. Gatekeeper shows "Sign In to MyApp", the user enters their identifier, and Gatekeeper sends a magic link via outbox.
+
+4. The magic link points back to the application's `callback_url` with a signed token. The application verifies the token against the local Gatekeeper database and sets a `gk_session` cookie.
+
+Subsequent requests are validated locally — no network calls to Gatekeeper.
+
+**Parameters accepted by the login page:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `app_name` | Displayed in the login heading ("Sign In to {app_name}") |
+| `callback_url` | The application's verify endpoint — the magic link will point here |
+| `next` | URL to redirect to after successful login |
+
+When `callback_url` is not provided, the login page behaves as before (Gatekeeper's own login flow).
+
+Applications that use centralised SSO: [Cadence](../cadence/), [Folio](../folio/), [Outbox](../outbox/), [SharePoint Mirror](../sharepoint-mirror/), and [Webreports](../webreports/).
+
 ## Roadmap
 
 ### Done
@@ -286,6 +323,7 @@ Users found via LDAP are auto-provisioned into Gatekeeper and added to the `stan
 - [x] Per-user and global session invalidation via salt rotation
 - [x] Reverse proxy support (ProxyFix configuration)
 - [x] Docker and docker-compose deployment
+- [x] Centralised SSO login (apps redirect to Gatekeeper for authentication)
 
 ### Planned
 
