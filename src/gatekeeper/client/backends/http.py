@@ -107,6 +107,10 @@ class HttpBackend:
             logger.error(f"Unexpected error getting app_salt from Gatekeeper: {e}")
             return ""
 
+    def get_login_url(self) -> str | None:
+        """Return the server's login URL (derived from server_url)."""
+        return f"{self.server_url}/auth/login"
+
     def get_group(self, name: str) -> Group | None:
         try:
             with self._client() as client:

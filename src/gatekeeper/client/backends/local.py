@@ -135,6 +135,10 @@ class LocalBackend:
         finally:
             conn.close()
 
+    def get_login_url(self) -> str | None:
+        """Get the centralised SSO login URL from the ``server.login_url`` setting."""
+        return self._get_setting("server.login_url")
+
     def get_group(self, name: str) -> Group | None:
         conn = self._connect()
         try:

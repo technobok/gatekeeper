@@ -303,6 +303,18 @@ class GatekeeperClient:
         return self.backend.remove_group_member(group_name, username)
 
     # -------------------------------------------------------------------
+    # SSO login URL
+    # -------------------------------------------------------------------
+
+    def get_login_url(self) -> str | None:
+        """Get the centralised SSO login URL (from ``server.login_url`` setting).
+
+        Returns ``None`` when the setting is not configured, in which case
+        callers should fall back to their own login form.
+        """
+        return self.backend.get_login_url()
+
+    # -------------------------------------------------------------------
     # System
     # -------------------------------------------------------------------
 

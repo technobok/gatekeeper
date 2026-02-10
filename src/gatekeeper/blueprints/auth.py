@@ -158,44 +158,80 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
 
 @bp.route("/login", methods=["GET", "POST"])
 def login() -> str | Response:
-    """Show login form or process login request."""
+    """Show login form or process login request.
+
+    SSO mode: when ``callback_url`` is provided, the magic link points to the
+    calling app's verify endpoint instead of Gatekeeper's own, and the
+    admin-only restriction is skipped.
+    """
+    # SSO parameters (passed as query params on GET, hidden fields on POST)
     if request.method == "GET":
-        return render_template("auth/login.html", next_url=request.args.get("next", "/"))
+        app_name = request.args.get("app_name", "")
+        sso_callback_url = request.args.get("callback_url", "")
+        next_url = request.args.get("next", "/")
+        return render_template(
+            "auth/login.html",
+            next_url=next_url,
+            app_name=app_name,
+            callback_url=sso_callback_url,
+        )
 
     identifier = request.form.get("identifier", "").strip()
     next_url = request.form.get("next", "/")
+    app_name = request.form.get("app_name", "")
+    sso_callback_url = request.form.get("callback_url", "")
+    sso_mode = bool(sso_callback_url)
+
+    tpl_ctx = dict(
+        next_url=next_url,
+        identifier=identifier,
+        app_name=app_name,
+        callback_url=sso_callback_url,
+    )
 
     user, error = _resolve_identifier(identifier)
     if error:
         flash(error, "error")
         if _is_htmx():
-            return render_template("auth/login.html", next_url=next_url, identifier=identifier)
-        return redirect(url_for("auth.login", next=next_url))
+            return render_template("auth/login.html", **tpl_ctx)
+        return redirect(url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url))
     assert user is not None
 
-    # Only admin users may log in
-    if not Group.user_in_group(user.username, "admin"):
+    # Admin-only check applies only when logging into Gatekeeper itself
+    if not sso_mode and not Group.user_in_group(user.username, "admin"):
         flash("Access is restricted to administrators.", "error")
         _audit_log("login_rejected", user.username, "Non-admin login attempt")
         if _is_htmx():
-            return render_template("auth/login.html", next_url=next_url, identifier=identifier)
+            return render_template("auth/login.html", **tpl_ctx)
         return redirect(url_for("auth.login", next=next_url))
 
-    # Create magic link token and send email
+    # Create magic link token
     magic_token = token_service.create_magic_link_token(user.username, redirect_url=next_url)
-    callback_url = url_for("auth.verify", token=magic_token, _external=True)
 
-    sent = email_service.send_magic_link(user.email, callback_url)
+    # Build the verify URL: SSO mode points to the calling app, otherwise Gatekeeper's own verify
+    if sso_mode:
+        sep = "&" if "?" in sso_callback_url else "?"
+        verify_url = f"{sso_callback_url}{sep}token={magic_token}"
+    else:
+        verify_url = url_for("auth.verify", token=magic_token, _external=True)
+
+    display_name = app_name or "Gatekeeper"
+    sent = email_service.send_magic_link(user.email, verify_url, app_name=display_name)
     if not sent:
         logger.error(f"Failed to send magic link email to {user.email} for user {user.username}")
         flash("Failed to send login email. Please try again.", "error")
         if _is_htmx():
-            return render_template("auth/login.html", next_url=next_url, identifier=identifier)
-        return redirect(url_for("auth.login", next=next_url))
+            return render_template("auth/login.html", **tpl_ctx)
+        return redirect(url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url))
 
-    _audit_log("magic_link_sent", user.username, f"Email sent to {user.email}")
+    _audit_log("magic_link_sent", user.username, f"Email sent to {user.email} (app={display_name})")
 
-    return render_template("auth/login_sent.html", email=user.email)
+    return render_template(
+        "auth/login_sent.html",
+        email=user.email,
+        app_name=app_name,
+        callback_url=sso_callback_url,
+    )
 
 
 @bp.route("/verify")

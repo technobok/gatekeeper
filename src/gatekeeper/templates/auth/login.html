@@ -1,13 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Login - Gatekeeper{% endblock %}
+{% block title %}Login - {{ app_name or 'Gatekeeper' }}{% endblock %}
 
 {% block content %}
 <article style="max-width: 400px; margin: 2rem auto;">
     <header>
-        <h2>Sign In</h2>
+        <h2>Sign In{% if app_name %} to {{ app_name }}{% endif %}</h2>
     </header>
     <form method="post" action="{{ url_for('auth.login') }}">
         <input type="hidden" name="next" value="{{ next_url | default('/', true) }}">
+        <input type="hidden" name="app_name" value="{{ app_name | default('', true) }}">
+        <input type="hidden" name="callback_url" value="{{ callback_url | default('', true) }}">
         <label for="identifier">
             Email or Username
             <input type="text" id="identifier" name="identifier"

@@ -24,6 +24,10 @@ class GatekeeperBackend(Protocol):
         """Look up a group by name."""
         ...
 
+    def get_login_url(self) -> str | None:
+        """Get the centralised SSO login URL, or None if not configured."""
+        ...
+
     def resolve_identifier(self, identifier: str) -> User | None:
         """Resolve a login identifier (email, domain\\user, or bare username) to a user."""
         ...
