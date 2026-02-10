@@ -17,6 +17,10 @@ def _send_via_outbox_local(
     mail_sender = current_app.config.get("MAIL_SENDER", "")
 
     if not db_path or not mail_sender:
+        if not db_path:
+            current_app.logger.error("OUTBOX_DB_PATH not configured")
+        if not mail_sender:
+            current_app.logger.error("MAIL_SENDER not configured")
         return False
 
     now = datetime.now(UTC).isoformat()
@@ -91,7 +95,12 @@ def send_email(to_email: str, subject: str, body_text: str, body_html: str | Non
     if outbox_url and outbox_api_key:
         return _send_via_outbox(to_email, subject, body_text, body_html)
 
-    current_app.logger.error("Email not configured (no outbox DB path or outbox API settings)")
+    current_app.logger.error(
+        "Email not configured: OUTBOX_DB_PATH=%r, OUTBOX_URL=%r, OUTBOX_API_KEY=%s",
+        outbox_db_path,
+        current_app.config.get("OUTBOX_URL"),
+        "set" if current_app.config.get("OUTBOX_API_KEY") else "not set",
+    )
     return False
 
 
