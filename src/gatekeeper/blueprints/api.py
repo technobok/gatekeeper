@@ -2,9 +2,12 @@
 
 import json
 import logging
+from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.wrappers import Response
 
 from gatekeeper.db import get_db
 from gatekeeper.models.api_key import ApiKey
@@ -19,11 +22,11 @@ logger = logging.getLogger(__name__)
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 
-def api_key_required(f):
+def api_key_required(f: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator: require valid API key in Authorization header."""
 
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         auth = request.headers.get("Authorization", "")
         if not auth.startswith("Bearer "):
             return jsonify({"error": "Missing or invalid Authorization header"}), 401
@@ -56,7 +59,7 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
 
 @bp.route("/auth/resolve", methods=["POST"])
 @api_key_required
-def auth_resolve():
+def auth_resolve() -> Response | tuple[Response, int]:
     """Resolve an identifier to a user."""
     data = request.get_json(silent=True) or {}
     identifier = data.get("identifier", "").strip()
@@ -82,7 +85,7 @@ def auth_resolve():
 
 @bp.route("/auth/send-magic-link", methods=["POST"])
 @api_key_required
-def auth_send_magic_link():
+def auth_send_magic_link() -> Response | tuple[Response, int]:
     """Send a magic link email."""
     data = request.get_json(silent=True) or {}
     identifier = data.get("identifier", "").strip()
@@ -122,7 +125,7 @@ def auth_send_magic_link():
 
 @bp.route("/auth/verify-magic-link", methods=["POST"])
 @api_key_required
-def auth_verify_magic_link():
+def auth_verify_magic_link() -> Response | tuple[Response, int]:
     """Verify a magic link token."""
     data = request.get_json(silent=True) or {}
     token = data.get("token", "")
@@ -150,7 +153,7 @@ def auth_verify_magic_link():
 
 @bp.route("/auth/create-token", methods=["POST"])
 @api_key_required
-def auth_create_token():
+def auth_create_token() -> Response | tuple[Response, int]:
     """Create a signed auth token for a user."""
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
@@ -171,7 +174,7 @@ def auth_create_token():
 
 @bp.route("/auth/verify-token", methods=["POST"])
 @api_key_required
-def auth_verify_token():
+def auth_verify_token() -> Response | tuple[Response, int]:
     """Verify an auth token."""
     data = request.get_json(silent=True) or {}
     token = data.get("token", "")
@@ -200,7 +203,7 @@ def auth_verify_token():
 
 @bp.route("/users")
 @api_key_required
-def list_users():
+def list_users() -> Response:
     """List users with optional filtering."""
     search = request.args.get("search")
     enabled_only = request.args.get("enabled_only", "false").lower() == "true"
@@ -232,7 +235,7 @@ def list_users():
 
 @bp.route("/users/<path:username>")
 @api_key_required
-def get_user(username: str):
+def get_user(username: str) -> Response | tuple[Response, int]:
     """Get a single user."""
     user = User.get(username)
     if user is None:
@@ -252,7 +255,7 @@ def get_user(username: str):
 
 @bp.route("/users", methods=["POST"])
 @api_key_required
-def create_user():
+def create_user() -> Response | tuple[Response, int]:
     """Create a new user."""
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
@@ -286,7 +289,7 @@ def create_user():
 
 @bp.route("/users/<path:username>", methods=["PATCH"])
 @api_key_required
-def update_user(username: str):
+def update_user(username: str) -> Response | tuple[Response, int]:
     """Update a user."""
     user = User.get(username)
     if user is None:
@@ -314,7 +317,7 @@ def update_user(username: str):
 
 @bp.route("/users/<path:username>", methods=["DELETE"])
 @api_key_required
-def delete_user(username: str):
+def delete_user(username: str) -> Response | tuple[Response, int]:
     """Delete a user."""
     user = User.get(username)
     if user is None:
@@ -328,7 +331,7 @@ def delete_user(username: str):
 
 @bp.route("/users/<path:username>/rotate-salt", methods=["POST"])
 @api_key_required
-def rotate_user_salt(username: str):
+def rotate_user_salt(username: str) -> Response | tuple[Response, int]:
     """Rotate a user's login salt, invalidating their sessions."""
     user = User.get(username)
     if user is None:
@@ -342,7 +345,7 @@ def rotate_user_salt(username: str):
 
 @bp.route("/users/<path:username>/groups")
 @api_key_required
-def get_user_groups(username: str):
+def get_user_groups(username: str) -> Response | tuple[Response, int]:
     """Get groups for a user."""
     user = User.get(username)
     if user is None:
@@ -357,7 +360,7 @@ def get_user_groups(username: str):
 
 @bp.route("/groups")
 @api_key_required
-def list_groups():
+def list_groups() -> Response:
     """List all groups."""
     groups = Group.get_all()
     return jsonify(
@@ -377,7 +380,7 @@ def list_groups():
 
 @bp.route("/groups/<name>")
 @api_key_required
-def get_group(name: str):
+def get_group(name: str) -> Response | tuple[Response, int]:
     """Get a single group."""
     group = Group.get(name)
     if group is None:
@@ -395,7 +398,7 @@ def get_group(name: str):
 
 @bp.route("/groups", methods=["POST"])
 @api_key_required
-def create_group():
+def create_group() -> Response | tuple[Response, int]:
     """Create a new group."""
     data = request.get_json(silent=True) or {}
     name = data.get("name", "").strip()
@@ -419,7 +422,7 @@ def create_group():
 
 @bp.route("/groups/<name>", methods=["PATCH"])
 @api_key_required
-def update_group(name: str):
+def update_group(name: str) -> Response | tuple[Response, int]:
     """Update a group."""
     group = Group.get(name)
     if group is None:
@@ -440,7 +443,7 @@ def update_group(name: str):
 
 @bp.route("/groups/<name>", methods=["DELETE"])
 @api_key_required
-def delete_group(name: str):
+def delete_group(name: str) -> Response | tuple[Response, int]:
     """Delete a group."""
     if name in ("admin", "standard"):
         return jsonify({"error": "Cannot delete built-in groups"}), 400
@@ -457,7 +460,7 @@ def delete_group(name: str):
 
 @bp.route("/groups/<name>/members")
 @api_key_required
-def list_group_members(name: str):
+def list_group_members(name: str) -> Response | tuple[Response, int]:
     """List members of a group."""
     group = Group.get(name)
     if group is None:
@@ -469,7 +472,7 @@ def list_group_members(name: str):
 
 @bp.route("/groups/<name>/members", methods=["POST"])
 @api_key_required
-def add_group_member(name: str):
+def add_group_member(name: str) -> Response | tuple[Response, int]:
     """Add a member to a group."""
     group = Group.get(name)
     if group is None:
@@ -492,7 +495,7 @@ def add_group_member(name: str):
 
 @bp.route("/groups/<name>/members/<path:username>", methods=["DELETE"])
 @api_key_required
-def remove_group_member(name: str, username: str):
+def remove_group_member(name: str, username: str) -> Response | tuple[Response, int]:
     """Remove a member from a group."""
     group = Group.get(name)
     if group is None:
@@ -510,7 +513,7 @@ def remove_group_member(name: str, username: str):
 
 @bp.route("/users/<path:username>/properties/<app>")
 @api_key_required
-def get_user_properties(username: str, app: str):
+def get_user_properties(username: str, app: str) -> Response | tuple[Response, int]:
     """Get all properties for a user+app."""
     user = User.get(username)
     if user is None:
@@ -522,7 +525,7 @@ def get_user_properties(username: str, app: str):
 
 @bp.route("/users/<path:username>/properties/<app>/<key>")
 @api_key_required
-def get_user_property(username: str, app: str, key: str):
+def get_user_property(username: str, app: str, key: str) -> Response | tuple[Response, int]:
     """Get a single property."""
     user = User.get(username)
     if user is None:
@@ -537,7 +540,7 @@ def get_user_property(username: str, app: str, key: str):
 
 @bp.route("/users/<path:username>/properties/<app>", methods=["PUT"])
 @api_key_required
-def set_user_properties(username: str, app: str):
+def set_user_properties(username: str, app: str) -> Response | tuple[Response, int]:
     """Bulk upsert properties for a user+app."""
     user = User.get(username)
     if user is None:
@@ -560,7 +563,7 @@ def set_user_properties(username: str, app: str):
 
 @bp.route("/users/<path:username>/properties/<app>/<key>", methods=["PUT"])
 @api_key_required
-def set_user_property(username: str, app: str, key: str):
+def set_user_property(username: str, app: str, key: str) -> Response | tuple[Response, int]:
     """Set a single property."""
     user = User.get(username)
     if user is None:
@@ -583,7 +586,7 @@ def set_user_property(username: str, app: str, key: str):
 
 @bp.route("/users/<path:username>/properties/<app>/<key>", methods=["DELETE"])
 @api_key_required
-def delete_user_property(username: str, app: str, key: str):
+def delete_user_property(username: str, app: str, key: str) -> Response | tuple[Response, int]:
     """Delete a single property."""
     user = User.get(username)
     if user is None:
@@ -604,7 +607,7 @@ def delete_user_property(username: str, app: str, key: str):
 
 @bp.route("/users/<path:username>/properties/<app>", methods=["DELETE"])
 @api_key_required
-def delete_user_properties(username: str, app: str):
+def delete_user_properties(username: str, app: str) -> Response | tuple[Response, int]:
     """Delete all properties for a user+app."""
     user = User.get(username)
     if user is None:
@@ -625,7 +628,7 @@ def delete_user_properties(username: str, app: str):
 
 @bp.route("/system/app-salt")
 @api_key_required
-def get_app_salt():
+def get_app_salt() -> Response:
     """Get the current app salt."""
     salt = AppSetting.get_app_salt()
     return jsonify({"app_salt": salt})
@@ -633,7 +636,7 @@ def get_app_salt():
 
 @bp.route("/system/rotate-app-salt", methods=["POST"])
 @api_key_required
-def rotate_app_salt():
+def rotate_app_salt() -> Response:
     """Rotate the global app salt, invalidating all sessions."""
     new_salt = AppSetting.rotate_app_salt()
     _audit_log("api_app_salt_rotated", details="All sessions invalidated")

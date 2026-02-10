@@ -1,6 +1,7 @@
 """Web server entry point for gatekeeper-web."""
 
 import click
+from flask import Flask
 
 
 @click.command()
@@ -8,7 +9,7 @@ import click
 @click.option("--port", default=None, type=int, help="Port (overrides config)")
 @click.option("--workers", default=2, help="Number of gunicorn workers")
 @click.option("--dev", is_flag=True, help="Run Flask development server with debug mode")
-def main(host: str | None, port: int | None, workers: int, dev: bool):
+def main(host: str | None, port: int | None, workers: int, dev: bool) -> None:
     """Start the Gatekeeper web server."""
     from gatekeeper import create_app
 
@@ -25,12 +26,12 @@ def main(host: str | None, port: int | None, workers: int, dev: bool):
         import gunicorn.app.base
 
         class GatekeeperApp(gunicorn.app.base.BaseApplication):
-            def load_config(self):
+            def load_config(self) -> None:
                 self.cfg.set("bind", f"{run_host}:{run_port}")  # type: ignore[union-attr]
                 self.cfg.set("workers", str(workers))  # type: ignore[union-attr]
                 self.cfg.set("preload_app", True)  # type: ignore[union-attr]
 
-            def load(self):
+            def load(self) -> Flask:
                 return app
 
         GatekeeperApp().run()

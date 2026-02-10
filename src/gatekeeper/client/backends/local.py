@@ -4,6 +4,7 @@ import json
 import logging
 import secrets
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,7 +33,7 @@ class LocalBackend:
         return conn
 
     @contextmanager
-    def _transaction(self):
+    def _transaction(self) -> Generator[tuple[apsw.Connection, apsw.Cursor]]:
         """Context manager for write transactions. Yields (conn, cursor)."""
         conn = self._connect(readonly=False)
         cursor = conn.cursor()

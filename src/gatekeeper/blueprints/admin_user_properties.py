@@ -13,6 +13,7 @@ from flask import (
     send_file,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -45,15 +46,12 @@ def _property_types_with_counts() -> list[dict]:
         "GROUP BY app, key "
         "ORDER BY app, key"
     ).fetchall()
-    return [
-        {"app": row[0], "key": row[1], "user_count": row[2]}
-        for row in rows
-    ]
+    return [{"app": row[0], "key": row[1], "user_count": row[2]} for row in rows]
 
 
 @bp.route("/")
 @admin_required
-def list_properties():
+def list_properties() -> str:
     """List all property types with user counts."""
     property_types = _property_types_with_counts()
     if _is_htmx():
@@ -63,7 +61,7 @@ def list_properties():
 
 @bp.route("/export")
 @admin_required
-def export():
+def export() -> Response:
     """Export all property types as XLSX."""
     property_types = _property_types_with_counts()
     headers = ["App", "Key", "Users"]
@@ -75,14 +73,14 @@ def export():
 
 @bp.route("/create", methods=["GET"])
 @admin_required
-def create_form():
+def create_form() -> str:
     """Show create property form."""
     return render_template("admin/user_property_form.html", property_type=None)
 
 
 @bp.route("/create", methods=["POST"])
 @admin_required
-def create_property():
+def create_property() -> Response:
     """Create a new user property."""
     app_name = request.form.get("app", "").strip()
     key = request.form.get("key", "").strip()
@@ -118,7 +116,7 @@ def create_property():
 
 @bp.route("/<app>/<key>/edit", methods=["GET"])
 @admin_required
-def edit_form(app: str, key: str):
+def edit_form(app: str, key: str) -> str:
     """Show edit form for a property type."""
     db = get_db()
     row = db.execute(
@@ -127,13 +125,14 @@ def edit_form(app: str, key: str):
     ).fetchone()
     if not row or row[0] == 0:
         abort(404)
+    assert row is not None
     property_type = {"app": app, "key": key, "user_count": row[0]}
     return render_template("admin/user_property_form.html", property_type=property_type)
 
 
 @bp.route("/<app>/<key>/edit", methods=["POST"])
 @admin_required
-def edit_property(app: str, key: str):
+def edit_property(app: str, key: str) -> Response:
     """Rename a property type (update app/key for all users)."""
     new_app = request.form.get("app", "").strip()
     new_key = request.form.get("key", "").strip()
@@ -162,7 +161,7 @@ def edit_property(app: str, key: str):
 
 @bp.route("/<app>/<key>/delete", methods=["POST"])
 @admin_required
-def delete_property(app: str, key: str):
+def delete_property(app: str, key: str) -> str | Response:
     """Delete all instances of a property type."""
     db = get_db()
     db.execute(
@@ -179,7 +178,7 @@ def delete_property(app: str, key: str):
 
 @bp.route("/<app>/<key>/users")
 @admin_required
-def users(app: str, key: str):
+def users(app: str, key: str) -> str:
     """Show users who have this property."""
     db = get_db()
     rows = db.execute(
@@ -196,7 +195,7 @@ def users(app: str, key: str):
 
 @bp.route("/<app>/<key>/users/<path:username>/remove", methods=["POST"])
 @admin_required
-def remove_user(app: str, key: str, username: str):
+def remove_user(app: str, key: str, username: str) -> str | Response:
     """Remove a property from a specific user."""
     from gatekeeper.models.user_property import UserProperty
 

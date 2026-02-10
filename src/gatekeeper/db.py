@@ -53,7 +53,7 @@ def get_db() -> apsw.Connection:
     return g.db
 
 
-def close_db(e=None) -> None:
+def close_db(e: BaseException | None = None) -> None:
     """Close the database connection at the end of the request."""
     from flask import g
 

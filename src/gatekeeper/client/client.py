@@ -1,5 +1,10 @@
 """GatekeeperClient facade - unified API for both local and HTTP modes."""
 
+from collections.abc import Callable
+from typing import Any
+
+from flask import Flask
+
 from gatekeeper.client.models import Group, User
 from gatekeeper.client.token import create_auth_token, decode_auth_token, decode_magic_link_token
 
@@ -309,7 +314,7 @@ class GatekeeperClient:
     # Flask integration
     # -------------------------------------------------------------------
 
-    def init_app(self, app, cookie_name: str = "gk_session") -> None:
+    def init_app(self, app: Flask, cookie_name: str = "gk_session") -> None:
         """Initialize Flask integration. Sets up before_request hook."""
         from gatekeeper.client.flask_integration import setup_flask_integration
 
@@ -317,13 +322,13 @@ class GatekeeperClient:
         self._cookie_name = cookie_name
         setup_flask_integration(app, self, cookie_name)
 
-    def login_required(self, f):
+    def login_required(self, f: Callable[..., Any]) -> Callable[..., Any]:
         """Decorator: require authentication."""
         from gatekeeper.client.flask_integration import login_required_decorator
 
         return login_required_decorator(self, f)
 
-    def group_required(self, group_name: str):
+    def group_required(self, group_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
         """Decorator: require group membership."""
         from gatekeeper.client.flask_integration import group_required_decorator
 

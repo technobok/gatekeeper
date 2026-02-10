@@ -14,6 +14,7 @@ from flask import (
     send_file,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -41,7 +42,7 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
 
 @bp.route("/")
 @admin_required
-def index():
+def index() -> str:
     """System dashboard with counts and recent audit entries."""
     db = get_db()
 
@@ -81,7 +82,7 @@ def index():
 
 @bp.route("/rotate-secret-key", methods=["POST"])
 @admin_required
-def rotate_secret_key():
+def rotate_secret_key() -> Response:
     """Rotate the SECRET_KEY, invalidating all sessions."""
     new_key = AppSetting.rotate_secret_key()
     current_app.config["SECRET_KEY"] = new_key
@@ -93,7 +94,7 @@ def rotate_secret_key():
 
 @bp.route("/rotate-app-salt", methods=["POST"])
 @admin_required
-def rotate_app_salt():
+def rotate_app_salt() -> Response:
     """Rotate the global app salt, invalidating all sessions."""
     AppSetting.rotate_app_salt()
     _audit_log("app_salt_rotated", details="All sessions invalidated via admin UI")
@@ -104,7 +105,7 @@ def rotate_app_salt():
 
 @bp.route("/backup")
 @admin_required
-def backup():
+def backup() -> Response:
     """Download a copy of the SQLite database file."""
     db_path = current_app.config["DATABASE_PATH"]
 
@@ -124,7 +125,7 @@ def backup():
 
 @bp.route("/audit-log/export")
 @admin_required
-def audit_log_export():
+def audit_log_export() -> Response:
     """Export full audit log as XLSX."""
     db = get_db()
     rows = db.execute(
@@ -139,7 +140,7 @@ def audit_log_export():
 
 @bp.route("/audit-log")
 @admin_required
-def audit_log():
+def audit_log() -> str:
     """Show paginated audit log entries."""
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 50, type=int)

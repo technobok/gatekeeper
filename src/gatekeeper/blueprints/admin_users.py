@@ -12,6 +12,7 @@ from flask import (
     send_file,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -83,7 +84,7 @@ def _get_users_page(
 
 @bp.route("/")
 @admin_required
-def list_users():
+def list_users() -> str:
     """List users with search, sort, and pagination."""
     search = request.args.get("search", "").strip() or None
     page = max(1, int(request.args.get("page", 1)))
@@ -127,7 +128,7 @@ def list_users():
 
 @bp.route("/export")
 @admin_required
-def export():
+def export() -> Response:
     """Export all users as XLSX."""
     db = get_db()
     rows = db.execute(
@@ -163,14 +164,14 @@ def export():
 
 @bp.route("/create", methods=["GET"])
 @admin_required
-def create_form():
+def create_form() -> str:
     """Show create user form."""
     return render_template("admin/user_form.html", user=None)
 
 
 @bp.route("/create", methods=["POST"])
 @admin_required
-def create_user():
+def create_user() -> Response:
     """Create a new user."""
     username = request.form.get("username", "").strip()
     email = request.form.get("email", "").strip()
@@ -203,7 +204,7 @@ def create_user():
 
 @bp.route("/ldap-provision", methods=["GET"])
 @admin_required
-def ldap_provision_form():
+def ldap_provision_form() -> str | Response:
     """Show LDAP user provisioning form."""
     from gatekeeper.services.ldap_service import is_ldap_enabled
 
@@ -216,7 +217,7 @@ def ldap_provision_form():
 
 @bp.route("/ldap-provision", methods=["POST"])
 @admin_required
-def ldap_provision():
+def ldap_provision() -> Response:
     """Provision a user from LDAP."""
     from flask import current_app
 
@@ -303,7 +304,7 @@ def ldap_provision():
 
 @bp.route("/<path:username>/edit", methods=["GET"])
 @admin_required
-def edit_form(username: str):
+def edit_form(username: str) -> str:
     """Show edit user form."""
     username = username.lower()
     user = User.get(username)
@@ -321,7 +322,7 @@ def edit_form(username: str):
 
 @bp.route("/<path:username>/edit", methods=["POST"])
 @admin_required
-def edit_user(username: str):
+def edit_user(username: str) -> Response:
     """Update a user."""
     username = username.lower()
     user = User.get(username)
@@ -357,7 +358,7 @@ def edit_user(username: str):
 
 @bp.route("/<path:username>/toggle", methods=["POST"])
 @admin_required
-def toggle_user(username: str):
+def toggle_user(username: str) -> str:
     """Toggle user enabled/disabled (HTMX endpoint)."""
     username = username.lower()
     user = User.get(username)
@@ -376,7 +377,7 @@ def toggle_user(username: str):
 
 @bp.route("/<path:username>/rotate-salt", methods=["POST"])
 @admin_required
-def rotate_salt(username: str):
+def rotate_salt(username: str) -> Response:
     """Rotate user's login salt, invalidating all their sessions."""
     username = username.lower()
     user = User.get(username)
@@ -393,7 +394,7 @@ def rotate_salt(username: str):
 
 @bp.route("/<path:username>/delete", methods=["POST"])
 @admin_required
-def delete_user(username: str):
+def delete_user(username: str) -> str | Response:
     """Delete a user permanently."""
     username = username.lower()
     user = User.get(username)
@@ -412,7 +413,7 @@ def delete_user(username: str):
 
 @bp.route("/<path:username>/groups")
 @admin_required
-def user_groups(username: str):
+def user_groups(username: str) -> str:
     """Show user's group memberships."""
     username = username.lower()
     user = User.get(username)
@@ -428,7 +429,7 @@ def user_groups(username: str):
 
 @bp.route("/<path:username>/groups/add", methods=["POST"])
 @admin_required
-def add_user_group(username: str):
+def add_user_group(username: str) -> str | Response:
     """Add user to a group."""
     username = username.lower()
     user = User.get(username)
@@ -458,7 +459,7 @@ def add_user_group(username: str):
 
 @bp.route("/<path:username>/groups/<group_name>/remove", methods=["POST"])
 @admin_required
-def remove_user_group(username: str, group_name: str):
+def remove_user_group(username: str, group_name: str) -> str | Response:
     """Remove user from a group."""
     username = username.lower()
     user = User.get(username)
@@ -482,7 +483,7 @@ def remove_user_group(username: str, group_name: str):
 
 @bp.route("/groups/search")
 @admin_required
-def search_groups():
+def search_groups() -> Response:
     """Search groups for tom-select typeahead (returns JSON)."""
     query = request.args.get("q", "").strip().lower()
     all_groups = Group.get_all()

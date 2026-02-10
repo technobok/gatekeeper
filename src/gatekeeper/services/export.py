@@ -1,11 +1,12 @@
 """XLSX export helper."""
 
 import tempfile
+from typing import Any
 
 from openpyxl import Workbook
 
 
-def write_xlsx(headers: list[str], rows: list[list], filename: str) -> str:
+def write_xlsx(headers: list[str], rows: list[list[Any]], filename: str) -> str:
     """Write rows to a temp XLSX file, return the path."""
     wb = Workbook()
     ws = wb.active

@@ -14,6 +14,7 @@ from flask import (
     send_file,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
@@ -64,7 +65,7 @@ def _groups_with_counts() -> list[dict]:
 
 @bp.route("/")
 @admin_required
-def list_groups():
+def list_groups() -> str:
     """List all groups with member counts."""
     groups = _groups_with_counts()
     if _is_htmx():
@@ -74,7 +75,7 @@ def list_groups():
 
 @bp.route("/export")
 @admin_required
-def export():
+def export() -> Response:
     """Export all groups as XLSX."""
     groups = _groups_with_counts()
     headers = ["Name", "Description", "Members", "Created", "Updated"]
@@ -89,14 +90,14 @@ def export():
 
 @bp.route("/create", methods=["GET"])
 @admin_required
-def create_form():
+def create_form() -> str:
     """Show the create group form."""
     return render_template("admin/group_form.html", group=None)
 
 
 @bp.route("/create", methods=["POST"])
 @admin_required
-def create_group():
+def create_group() -> Response:
     """Create a new group."""
     name = request.form.get("name", "").strip()
     description = request.form.get("description", "").strip()
@@ -117,7 +118,7 @@ def create_group():
 
 @bp.route("/<name>/edit", methods=["GET"])
 @admin_required
-def edit_form(name: str):
+def edit_form(name: str) -> str:
     """Show the edit group form."""
     group = Group.get(name)
     if group is None:
@@ -127,7 +128,7 @@ def edit_form(name: str):
 
 @bp.route("/<name>/edit", methods=["POST"])
 @admin_required
-def edit_group(name: str):
+def edit_group(name: str) -> Response:
     """Update a group."""
     group = Group.get(name)
     if group is None:
@@ -143,7 +144,7 @@ def edit_group(name: str):
 
 @bp.route("/<name>/delete", methods=["POST"])
 @admin_required
-def delete_group(name: str):
+def delete_group(name: str) -> Response:
     """Delete a group (refuse built-in groups)."""
     if name in BUILTIN_GROUPS:
         flash(f"Cannot delete built-in group '{name}'.", "error")
@@ -162,7 +163,7 @@ def delete_group(name: str):
 
 @bp.route("/<name>/members", methods=["GET"])
 @admin_required
-def members(name: str):
+def members(name: str) -> str:
     """Show group members management page."""
     group = Group.get(name)
     if group is None:
@@ -184,7 +185,7 @@ def _get_member_users(group: Group) -> list[User]:
 
 @bp.route("/<name>/members", methods=["POST"])
 @admin_required
-def add_member(name: str):
+def add_member(name: str) -> str | Response:
     """Add a member to the group."""
     group = Group.get(name)
     if group is None:
@@ -211,7 +212,7 @@ def add_member(name: str):
 
 @bp.route("/<name>/members/<path:username>/remove", methods=["POST"])
 @admin_required
-def remove_member(name: str, username: str):
+def remove_member(name: str, username: str) -> str | Response:
     """Remove a member from the group."""
     group = Group.get(name)
     if group is None:
@@ -233,7 +234,7 @@ def remove_member(name: str, username: str):
 
 @bp.route("/users/search")
 @admin_required
-def search_users():
+def search_users() -> Response:
     """Search users for tom-select typeahead (returns JSON)."""
     query = request.args.get("q", "").strip().lower()
     all_users = User.get_all(limit=500)
@@ -261,7 +262,7 @@ def search_users():
 
 @bp.route("/copy-memberships", methods=["POST"])
 @admin_required
-def copy_memberships():
+def copy_memberships() -> Response:
     """Copy all group memberships from source user to target user."""
     source_username = request.form.get("source_username", "").strip()
     target_username = request.form.get("target_username", "").strip()

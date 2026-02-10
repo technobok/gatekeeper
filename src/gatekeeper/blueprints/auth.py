@@ -1,6 +1,8 @@
 """Authentication blueprint - login/verify/logout (HTMX)."""
 
 import logging
+from collections.abc import Callable
+from typing import Any
 
 from flask import (
     Blueprint,
@@ -14,6 +16,7 @@ from flask import (
     request,
     url_for,
 )
+from werkzeug.wrappers import Response
 
 from gatekeeper.db import get_db
 from gatekeeper.models.group import Group
@@ -154,7 +157,7 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
 
 
 @bp.route("/login", methods=["GET", "POST"])
-def login():
+def login() -> str | Response:
     """Show login form or process login request."""
     if request.method == "GET":
         return render_template("auth/login.html", next_url=request.args.get("next", "/"))
@@ -196,7 +199,7 @@ def login():
 
 
 @bp.route("/verify")
-def verify():
+def verify() -> Response:
     """Verify a magic link token and set the auth cookie."""
     token = request.args.get("token")
     if not token:
@@ -235,7 +238,7 @@ def verify():
 
 
 @bp.route("/logout", methods=["POST"])
-def logout():
+def logout() -> Response:
     """Clear the auth cookie."""
     response = make_response(redirect(url_for("auth.login")))
     response.delete_cookie("gk_session")
@@ -247,7 +250,7 @@ def logout():
 
 
 @bp.before_app_request
-def load_user():
+def load_user() -> None:
     """Load the current user from the auth cookie on every request."""
     g.user = None
     token = request.cookies.get("gk_session")
@@ -259,12 +262,12 @@ def _is_htmx() -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
-def login_required(f):
+def login_required(f: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator: require authentication."""
     from functools import wraps
 
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if g.get("user") is None:
             if _is_htmx():
                 return "", 401
@@ -274,12 +277,12 @@ def login_required(f):
     return decorated
 
 
-def admin_required(f):
+def admin_required(f: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator: require admin group membership."""
     from functools import wraps
 
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if g.get("user") is None:
             if _is_htmx():
                 return "", 401

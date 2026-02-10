@@ -1,6 +1,7 @@
 """Shared token signing/verification logic (no Flask dependency)."""
 
 import time
+from typing import Any
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -34,7 +35,7 @@ def create_auth_token(
     return s.dumps(payload, salt=AUTH_TOKEN_SALT)
 
 
-def decode_auth_token(secret_key: str, token: str) -> dict | None:
+def decode_auth_token(secret_key: str, token: str) -> dict[str, Any] | None:
     """Decode a signed authentication token without full verification.
 
     Returns the payload dict if the signature is valid, None otherwise.
@@ -73,7 +74,7 @@ def decode_magic_link_token(
     secret_key: str,
     token: str,
     max_age: int = 3600,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Decode a magic link token.
 
     Returns payload dict with 'u' (username) and 'r' (redirect_url), or None.

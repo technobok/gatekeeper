@@ -7,6 +7,7 @@ import sys
 from datetime import UTC, datetime
 
 import click
+from flask import Flask
 
 from gatekeeper.config import (
     INI_MAP,
@@ -26,7 +27,7 @@ from gatekeeper.db import (
 )
 
 
-def _make_app():
+def _make_app() -> Flask:
     """Create a Flask app for commands that need app context."""
     from gatekeeper import create_app
 

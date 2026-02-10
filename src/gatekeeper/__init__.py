@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import apsw
 from flask import Flask
+from werkzeug.wrappers import Response
 
 from gatekeeper.config import (
     KEY_MAP,
@@ -137,7 +138,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     # Root route redirects to admin
     @app.route("/")
-    def index():
+    def index() -> Response:
         from flask import redirect, url_for
 
         return redirect(url_for("admin_system.index"))
