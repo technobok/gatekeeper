@@ -1,0 +1,22 @@
+{% if properties %}
+<table>
+    <thead>
+        <tr>
+            <th>App</th>
+            <th>Key</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for prop in properties %}
+        <tr>
+            <td>{{ prop.app }}</td>
+            <td>{{ prop.key }}</td>
+            <td>{{ prop.value }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No properties.</p>
+{% endif %}

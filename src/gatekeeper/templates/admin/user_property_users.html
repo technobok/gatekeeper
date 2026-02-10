@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Users with {{ app }}/{{ key }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Users with property: {{ app }}/{{ key }}</h1>
+
+<div id="property-users-list">
+    {% include "admin/user_property_users_list.html" %}
+</div>
+
+<button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_user_properties.list_properties') }}'">Back to Properties</button>
+{% endblock %}

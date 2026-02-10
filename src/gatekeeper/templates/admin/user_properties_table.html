@@ -1,0 +1,36 @@
+<table>
+    <thead>
+        <tr>
+            <th>App</th>
+            <th>Key</th>
+            <th>Users</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pt in property_types %}
+        <tr>
+            <td>{{ pt.app }}</td>
+            <td>{{ pt.key }}</td>
+            <td>{{ pt.user_count }}</td>
+            <td>
+                <button class="outline secondary"
+                        onclick="location.href='{{ url_for('admin_user_properties.edit_form', app=pt.app, key=pt.key) }}'"
+                        style="padding: 4px 8px; margin: 0;">Edit</button>
+                <button class="outline secondary"
+                        hx-post="{{ url_for('admin_user_properties.delete_property', app=pt.app, key=pt.key) }}"
+                        hx-confirm="Delete all instances of property '{{ pt.app }}/{{ pt.key }}'?"
+                        hx-target="#properties-table"
+                        style="padding: 4px 8px; margin: 0;">Delete</button>
+                <button class="outline secondary"
+                        onclick="location.href='{{ url_for('admin_user_properties.users', app=pt.app, key=pt.key) }}'"
+                        style="padding: 4px 8px; margin: 0;">Users</button>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4">No property types found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

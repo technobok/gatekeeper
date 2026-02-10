@@ -71,6 +71,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         admin_groups,
         admin_sql,
         admin_system,
+        admin_user_properties,
         admin_users,
         api,
         auth,
@@ -80,6 +81,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(api.bp)
     app.register_blueprint(admin_users.bp)
     app.register_blueprint(admin_groups.bp)
+    app.register_blueprint(admin_user_properties.bp)
     app.register_blueprint(admin_api_keys.bp)
     app.register_blueprint(admin_system.bp)
     app.register_blueprint(admin_sql.bp)

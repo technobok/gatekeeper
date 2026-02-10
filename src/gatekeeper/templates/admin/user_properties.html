@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}User Properties - Gatekeeper{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>User Properties</h1>
+    <div style="display: flex; gap: 0.5rem;">
+        <button type="button" class="secondary outline" onclick="location.href='{{ url_for('admin_user_properties.export') }}'">Export</button>
+        <button type="button" onclick="location.href='{{ url_for('admin_user_properties.create_form') }}'">Create User Property</button>
+    </div>
+</div>
+
+<div id="properties-table">
+    {% include "admin/user_properties_table.html" %}
+</div>
+{% endblock %}

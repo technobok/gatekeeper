@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit Property Type" if property_type else "Create User Property" }} - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>{% if property_type %}Edit Property Type: {{ property_type.app }}/{{ property_type.key }}{% else %}Create User Property{% endif %}</h1>
+
+<form method="post"
+      action="{{ url_for('admin_user_properties.edit_property', app=property_type.app, key=property_type.key) if property_type else url_for('admin_user_properties.create_property') }}">
+    <label for="app">
+        App
+        <input type="text" id="app" name="app" required autofocus
+               value="{{ property_type.app if property_type else '' }}"
+               placeholder="e.g. myapp">
+    </label>
+
+    <label for="key">
+        Key
+        <input type="text" id="key" name="key" required
+               value="{{ property_type.key if property_type else '' }}"
+               placeholder="e.g. role">
+    </label>
+
+    {% if not property_type %}
+    <label for="username">
+        Username
+        <input type="text" id="username" name="username"
+               placeholder="e.g. jsmith (required to create a property)">
+    </label>
+
+    <label for="value">
+        Value
+        <input type="text" id="value" name="value"
+               placeholder="e.g. editor">
+    </label>
+    {% endif %}
+
+    <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" style="flex: 1;">{{ "Save" if property_type else "Create" }}</button>
+        <button type="button" class="outline secondary" style="flex: 1;" onclick="location.href='{{ url_for('admin_user_properties.list_properties') }}'">Cancel</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% if user_values %}
+<table>
+    <thead>
+        <tr>
+            <th>Username</th>
+            <th>Value</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for uv in user_values %}
+        <tr>
+            <td>{{ uv.username }}</td>
+            <td>{{ uv.value }}</td>
+            <td>
+                <button class="outline secondary"
+                        hx-post="{{ url_for('admin_user_properties.remove_user', app=app, key=key, username=uv.username) }}"
+                        hx-target="#property-users-list"
+                        hx-swap="innerHTML"
+                        hx-confirm="Remove property '{{ app }}/{{ key }}' from user '{{ uv.username }}'?"
+                        style="padding: 4px 8px; margin: 0;">Remove</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No users have this property.</p>
+{% endif %}

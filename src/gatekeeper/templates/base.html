@@ -18,6 +18,7 @@
                 {% if g.user %}
                 <li><a href="{{ url_for('admin_users.list_users') }}">Users</a></li>
                 <li><a href="{{ url_for('admin_groups.list_groups') }}">Groups</a></li>
+                <li><a href="{{ url_for('admin_user_properties.list_properties') }}">Properties</a></li>
                 <li><a href="{{ url_for('admin_api_keys.index') }}">API Keys</a></li>
                 <li><a href="{{ url_for('admin_system.index') }}">System</a></li>
                 <li><a href="{{ url_for('admin_sql.index') }}">SQL</a></li>

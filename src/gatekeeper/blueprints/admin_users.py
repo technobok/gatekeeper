@@ -310,7 +310,13 @@ def edit_form(username: str):
     if user is None:
         abort(404)
     groups = Group.get_groups_for_user(username)
-    return render_template("admin/user_form.html", user=user, groups=groups)
+    db = get_db()
+    prop_rows = db.execute(
+        "SELECT app, key, value FROM user_property WHERE LOWER(username) = ? ORDER BY app, key",
+        (username,),
+    ).fetchall()
+    properties = [{"app": r[0], "key": r[1], "value": r[2]} for r in prop_rows]
+    return render_template("admin/user_form.html", user=user, groups=groups, properties=properties)
 
 
 @bp.route("/<path:username>/edit", methods=["POST"])

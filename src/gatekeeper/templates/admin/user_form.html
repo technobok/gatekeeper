@@ -51,7 +51,11 @@
 <button type="button" class="outline" onclick="location.href='{{ url_for('admin_users.user_groups', username=user.username) }}'">Edit group memberships...</button>
 
 <hr>
-<h2>Danger Zone</h2>
+<h2>Properties</h2>
+{% include "admin/user_properties_list.html" %}
+
+<hr>
+<h2>Delete user</h2>
 <form method="post" action="{{ url_for('admin_users.delete_user', username=user.username) }}"
       onsubmit="return confirm('Permanently delete user \'{{ user.username }}\'? This cannot be undone.');">
     <button type="submit" class="secondary">Delete User</button>
