@@ -36,6 +36,7 @@ REGISTRY: list[ConfigEntry] = [
     ConfigEntry("server.dev_host", ConfigType.STRING, "127.0.0.1", "Bind address for dev server"),
     ConfigEntry("server.dev_port", ConfigType.INT, 5100, "Port for dev server"),
     ConfigEntry("server.debug", ConfigType.BOOL, False, "Enable Flask debug mode"),
+    ConfigEntry("server.login_url", ConfigType.STRING, "", "Public URL of Gatekeeper login page for centralised SSO"),
     # -- mail --
     ConfigEntry("mail.mail_sender", ConfigType.STRING, "", "Email sender address"),
     # -- outbox --
@@ -195,6 +196,7 @@ KEY_MAP: dict[str, str] = {
     "proxy.x_forwarded_proto": "PROXY_X_FORWARDED_PROTO",
     "proxy.x_forwarded_host": "PROXY_X_FORWARDED_HOST",
     "proxy.x_forwarded_prefix": "PROXY_X_FORWARDED_PREFIX",
+    "server.login_url": "LOGIN_URL",
     "ldap.enabled": "LDAP_ENABLED",
     "ldap.domains": "LDAP_DOMAINS",
 }
@@ -229,6 +231,7 @@ INI_MAP: dict[tuple[str, str], str | None] = {
     ("proxy", "X_FORWARDED_PROTO"): "proxy.x_forwarded_proto",
     ("proxy", "X_FORWARDED_HOST"): "proxy.x_forwarded_host",
     ("proxy", "X_FORWARDED_PREFIX"): "proxy.x_forwarded_prefix",
+    ("server", "LOGIN_URL"): "server.login_url",
     ("ldap", "ENABLED"): "ldap.enabled",
     ("ldap", "DOMAINS"): "ldap.domains",
 }
