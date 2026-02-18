@@ -334,6 +334,25 @@ class GatekeeperClient:
         self._cookie_name = cookie_name
         setup_flask_integration(app, self, cookie_name)
 
+    def set_session_cookie(
+        self, response: Any, user: User, lifetime_seconds: int = 86400 * 365
+    ) -> None:
+        """Create an auth token and set the session cookie on a response.
+
+        Ensures the token lifetime and cookie max_age always match.
+        """
+        from flask import request
+
+        token = self.create_auth_token(user, lifetime_seconds=lifetime_seconds)
+        response.set_cookie(
+            self._cookie_name,
+            token,
+            max_age=lifetime_seconds,
+            httponly=True,
+            secure=request.is_secure,
+            samesite="Lax",
+        )
+
     def login_required(self, f: Callable[..., Any]) -> Callable[..., Any]:
         """Decorator: require authentication."""
         from gatekeeper.client.flask_integration import login_required_decorator
