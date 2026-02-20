@@ -168,7 +168,7 @@ def login() -> str | Response:
     if request.method == "GET":
         app_name = request.args.get("app_name", "")
         sso_callback_url = request.args.get("callback_url", "")
-        next_url = request.args.get("next", "/")
+        next_url = request.args.get("next", url_for("index"))
         return render_template(
             "auth/login.html",
             next_url=next_url,
@@ -177,7 +177,7 @@ def login() -> str | Response:
         )
 
     identifier = request.form.get("identifier", "").strip()
-    next_url = request.form.get("next", "/")
+    next_url = request.form.get("next", url_for("index"))
     app_name = request.form.get("app_name", "")
     sso_callback_url = request.form.get("callback_url", "")
     sso_mode = bool(sso_callback_url)
