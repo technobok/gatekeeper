@@ -729,7 +729,8 @@ def refresh_all_ldap() -> str | Response:
         return (
             f'<div hx-post="{next_url}" hx-trigger="load" '
             f'hx-target="#ldap-refresh-status" hx-swap="innerHTML">'
-            f'<p aria-busy="true">Refreshing LDAP users... ({offset}/{total})</p>'
+            f"<p>Refreshing LDAP users... ({offset}/{total})</p>"
+            f'<progress value="{offset}" max="{total}"></progress>'
             f"</div>"
         )
 
