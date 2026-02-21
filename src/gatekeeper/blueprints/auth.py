@@ -129,7 +129,7 @@ def _try_ldap_bare(username: str) -> User | None:
 
 def _auto_provision(ldap_user: Any) -> User:
     """Auto-create a user from LDAP data, add to standard group, and sync LDAP groups."""
-    from gatekeeper.services.ldap_service import LdapUser
+    from gatekeeper.services.ldap_service import LdapUser, resolve_domain
 
     assert isinstance(ldap_user, LdapUser)
     username = ldap_user.username
@@ -137,8 +137,9 @@ def _auto_provision(ldap_user: Any) -> User:
     if user:
         return user
 
-    # Extract domain from username (DOMAIN\sam)
-    ldap_domain = username.split("\\", 1)[0] if "\\" in username else ""
+    # Extract domain from username (DOMAIN\sam) and resolve to config casing
+    raw_domain = username.split("\\", 1)[0] if "\\" in username else ""
+    ldap_domain = resolve_domain(raw_domain) or raw_domain
 
     user = User.create(
         username=username,

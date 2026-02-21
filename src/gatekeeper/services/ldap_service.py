@@ -39,6 +39,18 @@ def is_ldap_enabled() -> bool:
     return current_app.config.get("LDAP_ENABLED", False)
 
 
+def resolve_domain(domain: str) -> str | None:
+    """Match a domain name (case-insensitive) against LDAP_DOMAINS config.
+
+    Returns the domain in the config's canonical casing, or None if not found.
+    """
+    configured = current_app.config.get("LDAP_DOMAINS", [])
+    for d in configured:
+        if d.lower() == domain.lower():
+            return d
+    return None
+
+
 def check_ldap_configured() -> None:
     """Raise RuntimeError if LDAP is enabled but python-ldap is not installed."""
     if is_ldap_enabled() and not is_ldap_available():

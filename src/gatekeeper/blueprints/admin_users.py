@@ -6,6 +6,7 @@ from flask import (
     flash,
     g,
     jsonify,
+    make_response,
     redirect,
     render_template,
     request,
@@ -286,10 +287,11 @@ def ldap_provision() -> Response:
         )
         return redirect(url_for("admin_users.ldap_provision_form"))
 
-    # Extract domain from username
-    ldap_domain = ""
-    if "\\" in ldap_user.username:
-        ldap_domain = ldap_user.username.split("\\", 1)[0]
+    # Extract domain from username and resolve to config casing
+    from gatekeeper.services.ldap_service import resolve_domain
+
+    raw_domain = ldap_user.username.split("\\", 1)[0] if "\\" in ldap_user.username else ""
+    ldap_domain = resolve_domain(raw_domain) or raw_domain
 
     # Create the user with extended fields
     User.create(
@@ -582,7 +584,11 @@ def _refresh_ldap_user(user: User) -> tuple[bool, str]:
     """
     from flask import current_app
 
-    from gatekeeper.services.ldap_service import is_ldap_enabled, lookup_full_details
+    from gatekeeper.services.ldap_service import (
+        is_ldap_enabled,
+        lookup_full_details,
+        resolve_domain,
+    )
 
     if not is_ldap_enabled():
         return False, "LDAP is not enabled."
@@ -590,15 +596,19 @@ def _refresh_ldap_user(user: User) -> tuple[bool, str]:
     if not user.is_ldap:
         return False, f"User '{user.username}' is not an LDAP user."
 
-    domain = user.ldap_domain
+    domain = resolve_domain(user.ldap_domain)
+    if not domain:
+        return False, f"No configured LDAP domain matches '{user.ldap_domain}'."
+
     bare_username = user.username.split("\\", 1)[1] if "\\" in user.username else user.username
 
     ldap_user = lookup_full_details(domain, bare_username)
     if not ldap_user:
         return False, f"User '{user.username}' not found in LDAP domain '{domain}'."
 
-    # Update extended fields
+    # Update extended fields (also fix ldap_domain to config casing)
     user.update(
+        ldap_domain=domain,
         email=ldap_user.email,
         fullname=ldap_user.fullname,
         given_name=ldap_user.given_name,
@@ -653,23 +663,9 @@ def refresh_ldap(username: str) -> str | Response:
         flash(message, "error")
 
     if _is_htmx():
-        # Re-render the edit form
-        groups = Group.get_groups_for_user(username)
-        db = get_db()
-        prop_rows = db.execute(
-            "SELECT app, key, value FROM user_property WHERE LOWER(username) = ? ORDER BY app, key",
-            (username,),
-        ).fetchall()
-        properties = [{"app": r[0], "key": r[1], "value": r[2]} for r in prop_rows]
-        # Re-fetch user after refresh
-        user = User.get(username)
-        return render_template(
-            "admin/user_form.html",
-            user=user,
-            groups=groups,
-            properties=properties,
-            is_ldap=user.is_ldap if user else False,
-        )
+        resp = make_response("")
+        resp.headers["HX-Redirect"] = url_for("admin_users.edit_form", username=username)
+        return resp
 
     return redirect(url_for("admin_users.edit_form", username=username))
 
