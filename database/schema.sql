@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '2');
+INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '3');
 
 CREATE TABLE IF NOT EXISTS app_setting (
     key TEXT PRIMARY KEY,
@@ -20,7 +20,15 @@ CREATE TABLE IF NOT EXISTS user (
     enabled INTEGER NOT NULL DEFAULT 1,
     login_salt TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    ldap_domain TEXT NOT NULL DEFAULT '',
+    given_name TEXT NOT NULL DEFAULT '',
+    mail_nickname TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    department TEXT NOT NULL DEFAULT '',
+    manager TEXT NOT NULL DEFAULT '',
+    telephone_number TEXT NOT NULL DEFAULT '',
+    mobile_number TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_email ON user(email);
@@ -29,7 +37,8 @@ CREATE TABLE IF NOT EXISTS grp (
     name TEXT PRIMARY KEY,
     description TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'gatekeeper'
 );
 
 CREATE TABLE IF NOT EXISTS group_user (
@@ -69,5 +78,5 @@ CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username)
 
 -- Default data
 INSERT OR IGNORE INTO app_setting VALUES ('app_salt', hex(randomblob(16)), 'Global session invalidation salt');
-INSERT OR IGNORE INTO grp VALUES ('admin', 'Administrators', datetime('now'), datetime('now'));
-INSERT OR IGNORE INTO grp VALUES ('standard', 'Standard users', datetime('now'), datetime('now'));
+INSERT OR IGNORE INTO grp VALUES ('admin', 'Administrators', datetime('now'), datetime('now'), 'gatekeeper');
+INSERT OR IGNORE INTO grp VALUES ('standard', 'Standard users', datetime('now'), datetime('now'), 'gatekeeper');

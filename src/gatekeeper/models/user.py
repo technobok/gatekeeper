@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 
 from gatekeeper.db import get_db, transaction
 
-_USER_COLUMNS = "username, email, fullname, enabled, login_salt, created_at, updated_at"
+_USER_COLUMNS = (
+    "username, email, fullname, enabled, login_salt, created_at, updated_at, "
+    "ldap_domain, given_name, mail_nickname, title, department, manager, "
+    "telephone_number, mobile_number"
+)
 
 
 @dataclass
@@ -18,6 +22,18 @@ class User:
     login_salt: str
     created_at: str
     updated_at: str
+    ldap_domain: str = ""
+    given_name: str = ""
+    mail_nickname: str = ""
+    title: str = ""
+    department: str = ""
+    manager: str = ""
+    telephone_number: str = ""
+    mobile_number: str = ""
+
+    @property
+    def is_ldap(self) -> bool:
+        return bool(self.ldap_domain)
 
     @staticmethod
     def _from_row(row: tuple) -> User:
@@ -29,6 +45,14 @@ class User:
             login_salt=row[4],
             created_at=row[5],
             updated_at=row[6],
+            ldap_domain=row[7] if len(row) > 7 else "",
+            given_name=row[8] if len(row) > 8 else "",
+            mail_nickname=row[9] if len(row) > 9 else "",
+            title=row[10] if len(row) > 10 else "",
+            department=row[11] if len(row) > 11 else "",
+            manager=row[12] if len(row) > 12 else "",
+            telephone_number=row[13] if len(row) > 13 else "",
+            mobile_number=row[14] if len(row) > 14 else "",
         )
 
     @staticmethod
@@ -56,6 +80,14 @@ class User:
         email: str,
         fullname: str = "",
         enabled: bool = True,
+        ldap_domain: str = "",
+        given_name: str = "",
+        mail_nickname: str = "",
+        title: str = "",
+        department: str = "",
+        manager: str = "",
+        telephone_number: str = "",
+        mobile_number: str = "",
     ) -> User:
         """Create a new user. Username is stored lowercase."""
         username = username.lower()
@@ -65,8 +97,26 @@ class User:
         with transaction() as cursor:
             cursor.execute(
                 "INSERT INTO user (username, email, fullname, enabled, login_salt, "
-                "created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (username, email, fullname, int(enabled), login_salt, now, now),
+                "created_at, updated_at, ldap_domain, given_name, mail_nickname, "
+                "title, department, manager, telephone_number, mobile_number) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    username,
+                    email,
+                    fullname,
+                    int(enabled),
+                    login_salt,
+                    now,
+                    now,
+                    ldap_domain,
+                    given_name,
+                    mail_nickname,
+                    title,
+                    department,
+                    manager,
+                    telephone_number,
+                    mobile_number,
+                ),
             )
 
         return User(
@@ -77,6 +127,14 @@ class User:
             login_salt=login_salt,
             created_at=now,
             updated_at=now,
+            ldap_domain=ldap_domain,
+            given_name=given_name,
+            mail_nickname=mail_nickname,
+            title=title,
+            department=department,
+            manager=manager,
+            telephone_number=telephone_number,
+            mobile_number=mobile_number,
         )
 
     def update(
@@ -84,6 +142,14 @@ class User:
         email: str | None = None,
         fullname: str | None = None,
         enabled: bool | None = None,
+        ldap_domain: str | None = None,
+        given_name: str | None = None,
+        mail_nickname: str | None = None,
+        title: str | None = None,
+        department: str | None = None,
+        manager: str | None = None,
+        telephone_number: str | None = None,
+        mobile_number: str | None = None,
     ) -> None:
         """Update user fields."""
         now = datetime.now(UTC).isoformat()
@@ -104,6 +170,22 @@ class User:
             updates.append("enabled = ?")
             params.append(int(enabled))
             self.enabled = enabled
+
+        for field in (
+            "ldap_domain",
+            "given_name",
+            "mail_nickname",
+            "title",
+            "department",
+            "manager",
+            "telephone_number",
+            "mobile_number",
+        ):
+            value = locals()[field]
+            if value is not None:
+                updates.append(f"{field} = ?")
+                params.append(value)
+                setattr(self, field, value)
 
         if updates:
             updates.append("updated_at = ?")

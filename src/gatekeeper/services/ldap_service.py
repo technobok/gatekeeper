@@ -10,6 +10,18 @@ class LdapUser:
     username: str  # domain\sAMAccountName
     email: str
     fullname: str
+    given_name: str = ""
+    mail_nickname: str = ""
+    title: str = ""
+    department: str = ""
+    manager: str = ""
+    telephone_number: str = ""
+    mobile_number: str = ""
+    groups: list[str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.groups is None:
+            self.groups = []
 
 
 def is_ldap_available() -> bool:
@@ -82,11 +94,13 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
 
         current_app.logger.debug("LDAP bound successfully, searching...")
 
+        fetch_attrs = [email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS
+
         results = conn.search_s(
             base_dn,
             ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
             search_filter,
-            [email_attr, fullname_attr, username_attr],
+            fetch_attrs,
         )
         conn.unbind_s()
 
@@ -106,11 +120,7 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
                 current_app.logger.debug(f"LDAP result skipped: no email attribute ({email_attr})")
                 continue
 
-            return LdapUser(
-                username=f"{domain}\\{sam}",
-                email=email,
-                fullname=fullname,
-            )
+            return _build_ldap_user(domain, sam, email, fullname, attrs)
 
     except Exception as e:
         current_app.logger.error(f"LDAP lookup failed for {domain}\\{username}: {e}")
@@ -156,11 +166,13 @@ def lookup_by_email(email: str) -> LdapUser | None:
             else:
                 conn.simple_bind_s("", "")
 
+            fetch_attrs = [email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS
+
             results = conn.search_s(
                 base_dn,
                 ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
                 search_filter,
-                [email_attr, fullname_attr, username_attr],
+                fetch_attrs,
             )
             conn.unbind_s()
 
@@ -174,16 +186,33 @@ def lookup_by_email(email: str) -> LdapUser | None:
                 if not sam:
                     continue
 
-                return LdapUser(
-                    username=f"{domain}\\{sam}",
-                    email=email,
-                    fullname=fullname,
-                )
+                return _build_ldap_user(domain, sam, email, fullname, attrs)
 
         except Exception as e:
             current_app.logger.error(f"LDAP email lookup failed in {domain}: {e}")
 
     return None
+
+
+_EXTENDED_ATTRS = [
+    "givenName",
+    "mailNickname",
+    "title",
+    "department",
+    "manager",
+    "telephoneNumber",
+    "mobile",
+    "memberOf",
+]
+
+
+def _extract_cn(dn: str) -> str:
+    """Extract the CN value from a distinguished name."""
+    for part in dn.split(","):
+        part = part.strip()
+        if part.upper().startswith("CN="):
+            return part[3:]
+    return dn
 
 
 def _get_attr(attrs: dict, name: str) -> str | None:
@@ -195,3 +224,43 @@ def _get_attr(attrs: dict, name: str) -> str | None:
     if isinstance(val, bytes):
         return val.decode("utf-8", errors="replace")
     return str(val)
+
+
+def _get_multi_attr(attrs: dict, name: str) -> list[str]:
+    """Extract a multi-valued attribute from LDAP results."""
+    values = attrs.get(name, [])
+    result = []
+    for val in values:
+        if isinstance(val, bytes):
+            result.append(val.decode("utf-8", errors="replace"))
+        else:
+            result.append(str(val))
+    return result
+
+
+def _build_ldap_user(domain: str, sam: str, email: str, fullname: str, attrs: dict) -> LdapUser:
+    """Build an LdapUser from raw LDAP attributes."""
+    manager_dn = _get_attr(attrs, "manager") or ""
+    manager_cn = _extract_cn(manager_dn) if manager_dn else ""
+
+    member_of = _get_multi_attr(attrs, "memberOf")
+    group_cns = [_extract_cn(dn) for dn in member_of]
+
+    return LdapUser(
+        username=f"{domain}\\{sam}",
+        email=email,
+        fullname=fullname,
+        given_name=_get_attr(attrs, "givenName") or "",
+        mail_nickname=_get_attr(attrs, "mailNickname") or "",
+        title=_get_attr(attrs, "title") or "",
+        department=_get_attr(attrs, "department") or "",
+        manager=manager_cn,
+        telephone_number=_get_attr(attrs, "telephoneNumber") or "",
+        mobile_number=_get_attr(attrs, "mobile") or "",
+        groups=group_cns,
+    )
+
+
+def lookup_full_details(domain: str, username: str) -> LdapUser | None:
+    """Fetch all extended attributes for a user. Reusable for refresh operations."""
+    return lookup_by_username(domain, username)

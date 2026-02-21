@@ -4,6 +4,7 @@
         <tr>
             <th>Group Name</th>
             <th>Description</th>
+            <th>Source</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -13,12 +14,21 @@
             <td><a href="{{ url_for('admin_groups.members', name=group.name) }}">{{ group.name }}</a></td>
             <td>{{ group.description }}</td>
             <td>
+                {% if group.source == 'ldap' %}
+                    <mark class="secondary">ldap</mark>
+                {% else %}
+                    <mark>gatekeeper</mark>
+                {% endif %}
+            </td>
+            <td>
+                {% if group.source != 'ldap' %}
                 <button class="outline secondary"
                         hx-post="{{ url_for('admin_users.remove_user_group', username=user.username, group_name=group.name) }}"
                         hx-target="#groups-list"
                         hx-swap="innerHTML"
                         hx-confirm="Remove '{{ user.username }}' from group '{{ group.name }}'?"
                         style="padding: 4px 8px; margin: 0;">Remove</button>
+                {% endif %}
             </td>
         </tr>
         {% endfor %}

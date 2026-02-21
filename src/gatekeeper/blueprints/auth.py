@@ -95,7 +95,7 @@ def _try_ldap_email(email: str) -> User | None:
 
     ldap_user = lookup_by_email(email)
     if ldap_user:
-        return _auto_provision(ldap_user.username, ldap_user.email, ldap_user.fullname)
+        return _auto_provision(ldap_user)
     return None
 
 
@@ -108,7 +108,7 @@ def _try_ldap_domain(domain: str, username: str) -> User | None:
 
     ldap_user = lookup_by_username(domain, username)
     if ldap_user:
-        return _auto_provision(ldap_user.username, ldap_user.email, ldap_user.fullname)
+        return _auto_provision(ldap_user)
     return None
 
 
@@ -123,23 +123,51 @@ def _try_ldap_bare(username: str) -> User | None:
     for domain in domains:
         ldap_user = lookup_by_username(domain, username)
         if ldap_user:
-            return _auto_provision(ldap_user.username, ldap_user.email, ldap_user.fullname)
+            return _auto_provision(ldap_user)
     return None
 
 
-def _auto_provision(username: str, email: str, fullname: str) -> User:
-    """Auto-create a user from LDAP data and add to standard group."""
+def _auto_provision(ldap_user: Any) -> User:
+    """Auto-create a user from LDAP data, add to standard group, and sync LDAP groups."""
+    from gatekeeper.services.ldap_service import LdapUser
+
+    assert isinstance(ldap_user, LdapUser)
+    username = ldap_user.username
     user = User.get(username)
     if user:
         return user
 
-    user = User.create(username=username, email=email, fullname=fullname)
+    # Extract domain from username (DOMAIN\sam)
+    ldap_domain = username.split("\\", 1)[0] if "\\" in username else ""
+
+    user = User.create(
+        username=username,
+        email=ldap_user.email,
+        fullname=ldap_user.fullname,
+        ldap_domain=ldap_domain,
+        given_name=ldap_user.given_name,
+        mail_nickname=ldap_user.mail_nickname,
+        title=ldap_user.title,
+        department=ldap_user.department,
+        manager=ldap_user.manager,
+        telephone_number=ldap_user.telephone_number,
+        mobile_number=ldap_user.mobile_number,
+    )
+
+    # Add to standard group
     group = Group.get("standard")
     if group:
         group.add_member(username)
 
-    current_app.logger.info(f"Auto-provisioned LDAP user: {username} ({email})")
-    _audit_log("auto_provision", username, f"LDAP auto-provisioned: {email}")
+    # Sync LDAP groups
+    for group_cn in ldap_user.groups or []:
+        grp = Group.get(group_cn)
+        if not grp:
+            grp = Group.create(name=group_cn, source="ldap")
+        grp.add_member(username)
+
+    current_app.logger.info(f"Auto-provisioned LDAP user: {username} ({ldap_user.email})")
+    _audit_log("auto_provision", username, f"LDAP auto-provisioned: {ldap_user.email}")
     return user
 
 
@@ -194,7 +222,9 @@ def login() -> str | Response:
         flash(error, "error")
         if _is_htmx():
             return render_template("auth/login.html", **tpl_ctx)
-        return redirect(url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url))
+        return redirect(
+            url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url)
+        )
     assert user is not None
 
     # Admin-only check applies only when logging into Gatekeeper itself
@@ -222,7 +252,9 @@ def login() -> str | Response:
         flash("Failed to send login email. Please try again.", "error")
         if _is_htmx():
             return render_template("auth/login.html", **tpl_ctx)
-        return redirect(url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url))
+        return redirect(
+            url_for("auth.login", next=next_url, app_name=app_name, callback_url=sso_callback_url)
+        )
 
     _audit_log("magic_link_sent", user.username, f"Email sent to {user.email} (app={display_name})")
 

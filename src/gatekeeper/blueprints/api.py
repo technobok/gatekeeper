@@ -73,14 +73,39 @@ def auth_resolve() -> Response | tuple[Response, int]:
         return jsonify({"error": error}), 404
     assert user is not None
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-        }
-    )
+    return jsonify(_user_to_dict(user))
+
+
+def _user_to_dict(user: User) -> dict:
+    """Convert a User to a JSON-serializable dict."""
+    return {
+        "username": user.username,
+        "email": user.email,
+        "fullname": user.fullname,
+        "enabled": user.enabled,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        "ldap_domain": user.ldap_domain,
+        "given_name": user.given_name,
+        "mail_nickname": user.mail_nickname,
+        "title": user.title,
+        "department": user.department,
+        "manager": user.manager,
+        "telephone_number": user.telephone_number,
+        "mobile_number": user.mobile_number,
+        "is_ldap": user.is_ldap,
+    }
+
+
+def _group_to_dict(group: Group) -> dict:
+    """Convert a Group to a JSON-serializable dict."""
+    return {
+        "name": group.name,
+        "description": group.description,
+        "created_at": group.created_at,
+        "updated_at": group.updated_at,
+        "source": group.source,
+    }
 
 
 @bp.route("/auth/send-magic-link", methods=["POST"])
@@ -139,16 +164,10 @@ def auth_verify_magic_link() -> Response | tuple[Response, int]:
     user, redirect_url = result
     groups = Group.get_groups_for_user(user.username)
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-            "redirect_url": redirect_url,
-            "groups": groups,
-        }
-    )
+    result_dict = _user_to_dict(user)
+    result_dict["redirect_url"] = redirect_url
+    result_dict["groups"] = groups
+    return jsonify(result_dict)
 
 
 @bp.route("/auth/create-token", methods=["POST"])
@@ -187,15 +206,9 @@ def auth_verify_token() -> Response | tuple[Response, int]:
 
     groups = Group.get_groups_for_user(user.username)
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-            "groups": groups,
-        }
-    )
+    result_dict = _user_to_dict(user)
+    result_dict["groups"] = groups
+    return jsonify(result_dict)
 
 
 # --- User endpoints ---
@@ -215,17 +228,7 @@ def list_users() -> Response:
 
     return jsonify(
         {
-            "users": [
-                {
-                    "username": u.username,
-                    "email": u.email,
-                    "fullname": u.fullname,
-                    "enabled": u.enabled,
-                    "created_at": u.created_at,
-                    "updated_at": u.updated_at,
-                }
-                for u in users
-            ],
+            "users": [_user_to_dict(u) for u in users],
             "total": total,
             "limit": limit,
             "offset": offset,
@@ -241,16 +244,7 @@ def get_user(username: str) -> Response | tuple[Response, int]:
     if user is None:
         return jsonify({"error": "User not found"}), 404
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at,
-        }
-    )
+    return jsonify(_user_to_dict(user))
 
 
 @bp.route("/users", methods=["POST"])
@@ -276,15 +270,7 @@ def create_user() -> Response | tuple[Response, int]:
 
     _audit_log("api_user_created", username, json.dumps({"email": email}))
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-            "created_at": user.created_at,
-        }
-    ), 201
+    return jsonify(_user_to_dict(user)), 201
 
 
 @bp.route("/users/<path:username>", methods=["PATCH"])
@@ -304,15 +290,7 @@ def update_user(username: str) -> Response | tuple[Response, int]:
 
     _audit_log("api_user_updated", username, json.dumps(data))
 
-    return jsonify(
-        {
-            "username": user.username,
-            "email": user.email,
-            "fullname": user.fullname,
-            "enabled": user.enabled,
-            "updated_at": user.updated_at,
-        }
-    )
+    return jsonify(_user_to_dict(user))
 
 
 @bp.route("/users/<path:username>", methods=["DELETE"])
@@ -363,19 +341,7 @@ def get_user_groups(username: str) -> Response | tuple[Response, int]:
 def list_groups() -> Response:
     """List all groups."""
     groups = Group.get_all()
-    return jsonify(
-        {
-            "groups": [
-                {
-                    "name": g.name,
-                    "description": g.description,
-                    "created_at": g.created_at,
-                    "updated_at": g.updated_at,
-                }
-                for g in groups
-            ]
-        }
-    )
+    return jsonify({"groups": [_group_to_dict(g) for g in groups]})
 
 
 @bp.route("/groups/<name>")
@@ -386,14 +352,7 @@ def get_group(name: str) -> Response | tuple[Response, int]:
     if group is None:
         return jsonify({"error": "Group not found"}), 404
 
-    return jsonify(
-        {
-            "name": group.name,
-            "description": group.description,
-            "created_at": group.created_at,
-            "updated_at": group.updated_at,
-        }
-    )
+    return jsonify(_group_to_dict(group))
 
 
 @bp.route("/groups", methods=["POST"])
@@ -408,16 +367,14 @@ def create_group() -> Response | tuple[Response, int]:
     if Group.get(name):
         return jsonify({"error": "Group already exists"}), 409
 
+    source = data.get("source", "gatekeeper")
+    if source == "ldap":
+        return jsonify({"error": "Cannot create LDAP-sourced groups via API"}), 400
+
     group = Group.create(name=name, description=data.get("description", ""))
     _audit_log("api_group_created", name)
 
-    return jsonify(
-        {
-            "name": group.name,
-            "description": group.description,
-            "created_at": group.created_at,
-        }
-    ), 201
+    return jsonify(_group_to_dict(group)), 201
 
 
 @bp.route("/groups/<name>", methods=["PATCH"])
@@ -428,17 +385,14 @@ def update_group(name: str) -> Response | tuple[Response, int]:
     if group is None:
         return jsonify({"error": "Group not found"}), 404
 
+    if group.source == "ldap":
+        return jsonify({"error": "Cannot modify LDAP-sourced groups"}), 400
+
     data = request.get_json(silent=True) or {}
     group.update(description=data.get("description"))
     _audit_log("api_group_updated", name)
 
-    return jsonify(
-        {
-            "name": group.name,
-            "description": group.description,
-            "updated_at": group.updated_at,
-        }
-    )
+    return jsonify(_group_to_dict(group))
 
 
 @bp.route("/groups/<name>", methods=["DELETE"])
@@ -451,6 +405,9 @@ def delete_group(name: str) -> Response | tuple[Response, int]:
     group = Group.get(name)
     if group is None:
         return jsonify({"error": "Group not found"}), 404
+
+    if group.source == "ldap":
+        return jsonify({"error": "Cannot delete LDAP-sourced groups"}), 400
 
     group.delete()
     _audit_log("api_group_deleted", name)
@@ -478,6 +435,9 @@ def add_group_member(name: str) -> Response | tuple[Response, int]:
     if group is None:
         return jsonify({"error": "Group not found"}), 404
 
+    if group.source == "ldap":
+        return jsonify({"error": "Cannot modify members of LDAP-sourced groups"}), 400
+
     data = request.get_json(silent=True) or {}
     username = data.get("username", "").strip()
     if not username:
@@ -500,6 +460,9 @@ def remove_group_member(name: str, username: str) -> Response | tuple[Response, 
     group = Group.get(name)
     if group is None:
         return jsonify({"error": "Group not found"}), 404
+
+    if group.source == "ldap":
+        return jsonify({"error": "Cannot modify members of LDAP-sourced groups"}), 400
 
     if not group.remove_member(username):
         return jsonify({"error": "User is not a member"}), 404

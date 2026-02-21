@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 
 from gatekeeper.db import get_db, transaction
 
-_GROUP_COLUMNS = "name, description, created_at, updated_at"
+_GROUP_COLUMNS = "name, description, created_at, updated_at, source"
 
 
 @dataclass
@@ -14,6 +14,7 @@ class Group:
     description: str
     created_at: str
     updated_at: str
+    source: str = "gatekeeper"
 
     @staticmethod
     def _from_row(row: tuple) -> Group:
@@ -22,6 +23,7 @@ class Group:
             description=row[1],
             created_at=row[2],
             updated_at=row[3],
+            source=row[4],
         )
 
     @staticmethod
@@ -32,17 +34,19 @@ class Group:
         return Group._from_row(row) if row else None
 
     @staticmethod
-    def create(name: str, description: str = "") -> Group:
+    def create(name: str, description: str = "", source: str = "gatekeeper") -> Group:
         """Create a new group."""
         now = datetime.now(UTC).isoformat()
 
         with transaction() as cursor:
             cursor.execute(
-                "INSERT INTO grp (name, description, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (name, description, now, now),
+                "INSERT INTO grp (name, description, created_at, updated_at, source) VALUES (?, ?, ?, ?, ?)",
+                (name, description, now, now, source),
             )
 
-        return Group(name=name, description=description, created_at=now, updated_at=now)
+        return Group(
+            name=name, description=description, created_at=now, updated_at=now, source=source
+        )
 
     def update(self, description: str | None = None) -> None:
         """Update group fields."""
@@ -119,6 +123,18 @@ class Group:
             (username.lower(),),
         ).fetchall()
         return [str(row[0]) for row in rows]
+
+    @staticmethod
+    def get_groups_for_user_with_source(username: str) -> list[tuple[str, str]]:
+        """Get (group_name, source) pairs for a user. Case-insensitive lookup."""
+        db = get_db()
+        rows = db.execute(
+            "SELECT gu.group_name, g.source FROM group_user gu "
+            "JOIN grp g ON gu.group_name = g.name "
+            "WHERE LOWER(gu.username) = ? ORDER BY gu.group_name",
+            (username.lower(),),
+        ).fetchall()
+        return [(str(row[0]), str(row[1])) for row in rows]
 
     @staticmethod
     def user_in_group(username: str, group_name: str) -> bool:

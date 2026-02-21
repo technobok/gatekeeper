@@ -3,6 +3,7 @@
         <tr>
             <th>Name</th>
             <th>Description</th>
+            <th>Source</th>
             <th>Members</th>
             <th>Actions</th>
         </tr>
@@ -16,9 +17,19 @@
                 </a>
             </td>
             <td>{{ group.description if group.description is defined else group[1] }}</td>
+            <td>
+                {% set gsource = group.source if group.source is defined else 'gatekeeper' %}
+                {% if gsource == 'ldap' %}
+                    <mark class="secondary">ldap</mark>
+                {% else %}
+                    <mark>gatekeeper</mark>
+                {% endif %}
+            </td>
             <td>{{ group.member_count if group.member_count is defined else group[2] }}</td>
             <td>
                 {% set gname = group.name if group.name is defined else group[0] %}
+                {% set gsource = group.source if group.source is defined else 'gatekeeper' %}
+                {% if gsource != 'ldap' %}
                 <button class="outline secondary"
                         onclick="location.href='{{ url_for('admin_groups.edit_form', name=gname) }}'"
                         style="padding: 4px 8px; margin: 0;">Edit</button>
@@ -29,6 +40,7 @@
                         hx-target="#groups-table"
                         style="padding: 4px 8px; margin: 0;">Delete</button>
                 {% endif %}
+                {% endif %}
                 <button class="outline secondary"
                         onclick="location.href='{{ url_for('admin_groups.members', name=gname) }}'"
                         style="padding: 4px 8px; margin: 0;">Members</button>
@@ -36,7 +48,7 @@
         </tr>
         {% else %}
         <tr>
-            <td colspan="4">No groups found.</td>
+            <td colspan="5">No groups found.</td>
         </tr>
         {% endfor %}
     </tbody>

@@ -47,7 +47,7 @@ def _groups_with_counts() -> list[dict]:
     db = get_db()
     rows = db.execute(
         "SELECT g.name, g.description, g.created_at, g.updated_at, "
-        "COUNT(gu.username) AS member_count "
+        "COUNT(gu.username) AS member_count, g.source "
         "FROM grp g LEFT JOIN group_user gu ON g.name = gu.group_name "
         "GROUP BY g.name ORDER BY g.name"
     ).fetchall()
@@ -58,6 +58,7 @@ def _groups_with_counts() -> list[dict]:
             "created_at": row[2],
             "updated_at": row[3],
             "member_count": row[4],
+            "source": row[5],
         }
         for row in rows
     ]
@@ -118,11 +119,15 @@ def create_group() -> Response:
 
 @bp.route("/<name>/edit", methods=["GET"])
 @admin_required
-def edit_form(name: str) -> str:
+def edit_form(name: str) -> str | Response:
     """Show the edit group form."""
     group = Group.get(name)
     if group is None:
         abort(404)
+    assert group is not None
+    if group.source == "ldap":
+        flash("Cannot edit LDAP-sourced groups.", "error")
+        return redirect(url_for("admin_groups.list_groups"))
     return render_template("admin/group_form.html", group=group)
 
 
@@ -134,6 +139,10 @@ def edit_group(name: str) -> Response:
     if group is None:
         abort(404)
     assert group is not None
+
+    if group.source == "ldap":
+        flash("Cannot edit LDAP-sourced groups.", "error")
+        return redirect(url_for("admin_groups.list_groups"))
 
     description = request.form.get("description", "").strip()
     group.update(description=description)
@@ -154,6 +163,10 @@ def delete_group(name: str) -> Response:
     if group is None:
         abort(404)
     assert group is not None
+
+    if group.source == "ldap":
+        flash("Cannot delete LDAP-sourced groups.", "error")
+        return redirect(url_for("admin_groups.list_groups"))
 
     group.delete()
     _audit_log("group_deleted", name)
@@ -192,6 +205,14 @@ def add_member(name: str) -> str | Response:
         abort(404)
     assert group is not None
 
+    if group.source == "ldap":
+        flash("Cannot modify members of LDAP-sourced groups.", "error")
+        if _is_htmx():
+            return render_template(
+                "admin/group_members_list.html", group=group, members=_get_member_users(group)
+            )
+        return redirect(url_for("admin_groups.members", name=name))
+
     username = request.form.get("username", "").strip()
     if not username:
         flash("Username is required.", "error")
@@ -218,6 +239,14 @@ def remove_member(name: str, username: str) -> str | Response:
     if group is None:
         abort(404)
     assert group is not None
+
+    if group.source == "ldap":
+        flash("Cannot modify members of LDAP-sourced groups.", "error")
+        if _is_htmx():
+            return render_template(
+                "admin/group_members_list.html", group=group, members=_get_member_users(group)
+            )
+        return redirect(url_for("admin_groups.members", name=name))
 
     if group.remove_member(username):
         _audit_log("member_removed", f"{name}/{username}")

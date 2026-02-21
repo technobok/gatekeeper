@@ -71,10 +71,11 @@ def _get_users_page(
     row = db.execute(f"SELECT COUNT(*) FROM user{where}", params).fetchone()
     total = int(row[0]) if row else 0
 
+    from gatekeeper.models.user import _USER_COLUMNS
+
     offset = (page - 1) * per_page
     rows = db.execute(
-        f"SELECT username, email, fullname, enabled, login_salt, created_at, updated_at "
-        f"FROM user{where} ORDER BY {col} {direction} LIMIT ? OFFSET ?",
+        f"SELECT {_USER_COLUMNS} FROM user{where} ORDER BY {col} {direction} LIMIT ? OFFSET ?",
         params + [per_page, offset],
     ).fetchall()
 
@@ -95,22 +96,32 @@ def list_users() -> str:
     users, total = _get_users_page(search, page, per_page, sort, order)
     total_pages = max(1, (total + per_page - 1) // per_page)
 
-    # Build username -> groups mapping for the current page of users
-    user_groups: dict[str, list[str]] = {}
+    # Build username -> gatekeeper groups and LDAP groups flag
+    user_gk_groups: dict[str, list[str]] = {}
+    user_has_ldap_groups: dict[str, bool] = {}
     if users:
         db = get_db()
         usernames = [u.username for u in users]
         placeholders = ",".join("?" * len(usernames))
         rows = db.execute(
-            f"SELECT username, group_name FROM group_user WHERE username IN ({placeholders}) ORDER BY group_name",
+            f"SELECT gu.username, gu.group_name, g.source "
+            f"FROM group_user gu JOIN grp g ON gu.group_name = g.name "
+            f"WHERE gu.username IN ({placeholders}) ORDER BY gu.group_name",
             usernames,
         ).fetchall()
         for row in rows:
-            user_groups.setdefault(str(row[0]), []).append(str(row[1]))
+            uname = str(row[0])
+            gname = str(row[1])
+            source = str(row[2])
+            if source == "ldap":
+                user_has_ldap_groups[uname] = True
+            else:
+                user_gk_groups.setdefault(uname, []).append(gname)
 
     context = {
         "users": users,
-        "user_groups": user_groups,
+        "user_groups": user_gk_groups,
+        "user_has_ldap_groups": user_has_ldap_groups,
         "search": search or "",
         "page": page,
         "per_page": per_page,
@@ -166,7 +177,7 @@ def export() -> Response:
 @admin_required
 def create_form() -> str:
     """Show create user form."""
-    return render_template("admin/user_form.html", user=None)
+    return render_template("admin/user_form.html", user=None, is_ldap=False)
 
 
 @bp.route("/create", methods=["POST"])
@@ -275,18 +286,38 @@ def ldap_provision() -> Response:
         )
         return redirect(url_for("admin_users.ldap_provision_form"))
 
-    # Create the user
+    # Extract domain from username
+    ldap_domain = ""
+    if "\\" in ldap_user.username:
+        ldap_domain = ldap_user.username.split("\\", 1)[0]
+
+    # Create the user with extended fields
     User.create(
         username=ldap_user.username,
         email=ldap_user.email,
         fullname=ldap_user.fullname,
         enabled=True,
+        ldap_domain=ldap_domain,
+        given_name=ldap_user.given_name,
+        mail_nickname=ldap_user.mail_nickname,
+        title=ldap_user.title,
+        department=ldap_user.department,
+        manager=ldap_user.manager,
+        telephone_number=ldap_user.telephone_number,
+        mobile_number=ldap_user.mobile_number,
     )
 
     # Add to standard group
     standard = Group.get("standard")
     if standard:
         standard.add_member(ldap_user.username)
+
+    # Sync LDAP groups
+    for group_cn in ldap_user.groups or []:
+        grp = Group.get(group_cn)
+        if not grp:
+            grp = Group.create(name=group_cn, source="ldap")
+        grp.add_member(ldap_user.username)
 
     _audit_log(
         "user_ldap_provisioned",
@@ -310,6 +341,7 @@ def edit_form(username: str) -> str:
     user = User.get(username)
     if user is None:
         abort(404)
+    assert user is not None
     groups = Group.get_groups_for_user(username)
     db = get_db()
     prop_rows = db.execute(
@@ -317,7 +349,13 @@ def edit_form(username: str) -> str:
         (username,),
     ).fetchall()
     properties = [{"app": r[0], "key": r[1], "value": r[2]} for r in prop_rows]
-    return render_template("admin/user_form.html", user=user, groups=groups, properties=properties)
+    return render_template(
+        "admin/user_form.html",
+        user=user,
+        groups=groups,
+        properties=properties,
+        is_ldap=user.is_ldap,
+    )
 
 
 @bp.route("/<path:username>/edit", methods=["POST"])
@@ -347,7 +385,32 @@ def edit_user(username: str) -> Response:
         user.rename(new_username)
         _audit_log("user_renamed", new_username, f"Renamed from {username}")
 
-    user.update(email=email or None, fullname=fullname, enabled=enabled)
+    if user.is_ldap:
+        # For LDAP users, only update enabled status (LDAP fields are read-only)
+        user.update(enabled=enabled)
+    else:
+        # For non-LDAP users, update all editable fields
+        given_name = request.form.get("given_name", "").strip()
+        mail_nickname = request.form.get("mail_nickname", "").strip()
+        title = request.form.get("title", "").strip()
+        department = request.form.get("department", "").strip()
+        manager = request.form.get("manager", "").strip()
+        telephone_number = request.form.get("telephone_number", "").strip()
+        mobile_number = request.form.get("mobile_number", "").strip()
+
+        user.update(
+            email=email or None,
+            fullname=fullname,
+            enabled=enabled,
+            given_name=given_name,
+            mail_nickname=mail_nickname,
+            title=title,
+            department=department,
+            manager=manager,
+            telephone_number=telephone_number,
+            mobile_number=mobile_number,
+        )
+
     _audit_log(
         "user_updated", new_username, f"email={email}, fullname={fullname}, enabled={enabled}"
     )
@@ -371,8 +434,15 @@ def toggle_user(username: str) -> str:
     state_label = "enabled" if new_state else "disabled"
     _audit_log("user_toggled", username, f"Set {state_label}")
 
-    groups = Group.get_groups_for_user(username)
-    return render_template("admin/user_row.html", user=user, user_groups={username: groups})
+    groups_with_source = Group.get_groups_for_user_with_source(username)
+    gk_groups = [name for name, source in groups_with_source if source != "ldap"]
+    has_ldap = any(source == "ldap" for _, source in groups_with_source)
+    return render_template(
+        "admin/user_row.html",
+        user=user,
+        user_groups={username: gk_groups},
+        user_has_ldap_groups={username: has_ldap} if has_ldap else {},
+    )
 
 
 @bp.route("/<path:username>/rotate-salt", methods=["POST"])
@@ -489,6 +559,8 @@ def search_groups() -> Response:
     all_groups = Group.get_all()
     results = []
     for grp in all_groups:
+        if grp.source == "ldap":
+            continue
         if query and query not in grp.name.lower() and query not in grp.description.lower():
             continue
         results.append(
@@ -501,3 +573,134 @@ def search_groups() -> Response:
         if len(results) >= 30:
             break
     return jsonify(results)
+
+
+def _refresh_ldap_user(user: User) -> tuple[bool, str]:
+    """Re-query LDAP and update a user's extended fields and group memberships.
+
+    Returns (success, message).
+    """
+    from flask import current_app
+
+    from gatekeeper.services.ldap_service import is_ldap_enabled, lookup_full_details
+
+    if not is_ldap_enabled():
+        return False, "LDAP is not enabled."
+
+    if not user.is_ldap:
+        return False, f"User '{user.username}' is not an LDAP user."
+
+    domain = user.ldap_domain
+    bare_username = user.username.split("\\", 1)[1] if "\\" in user.username else user.username
+
+    ldap_user = lookup_full_details(domain, bare_username)
+    if not ldap_user:
+        return False, f"User '{user.username}' not found in LDAP domain '{domain}'."
+
+    # Update extended fields
+    user.update(
+        email=ldap_user.email,
+        fullname=ldap_user.fullname,
+        given_name=ldap_user.given_name,
+        mail_nickname=ldap_user.mail_nickname,
+        title=ldap_user.title,
+        department=ldap_user.department,
+        manager=ldap_user.manager,
+        telephone_number=ldap_user.telephone_number,
+        mobile_number=ldap_user.mobile_number,
+    )
+
+    # Sync LDAP group memberships
+    current_ldap_groups = {
+        name
+        for name, source in Group.get_groups_for_user_with_source(user.username)
+        if source == "ldap"
+    }
+    desired_ldap_groups = set(ldap_user.groups or [])
+
+    # Add new LDAP groups
+    for group_cn in desired_ldap_groups - current_ldap_groups:
+        grp = Group.get(group_cn)
+        if not grp:
+            grp = Group.create(name=group_cn, source="ldap")
+        grp.add_member(user.username)
+
+    # Remove stale LDAP groups
+    for group_cn in current_ldap_groups - desired_ldap_groups:
+        grp = Group.get(group_cn)
+        if grp:
+            grp.remove_member(user.username)
+
+    current_app.logger.info(f"Refreshed LDAP user: {user.username}")
+    return True, f"User '{user.username}' refreshed from LDAP."
+
+
+@bp.route("/<path:username>/refresh-ldap", methods=["POST"])
+@admin_required
+def refresh_ldap(username: str) -> str | Response:
+    """Refresh a single user from LDAP."""
+    username = username.lower()
+    user = User.get(username)
+    if user is None:
+        abort(404)
+    assert user is not None
+
+    success, message = _refresh_ldap_user(user)
+    if success:
+        _audit_log("user_ldap_refreshed", username, message)
+        flash(message, "success")
+    else:
+        flash(message, "error")
+
+    if _is_htmx():
+        # Re-render the edit form
+        groups = Group.get_groups_for_user(username)
+        db = get_db()
+        prop_rows = db.execute(
+            "SELECT app, key, value FROM user_property WHERE LOWER(username) = ? ORDER BY app, key",
+            (username,),
+        ).fetchall()
+        properties = [{"app": r[0], "key": r[1], "value": r[2]} for r in prop_rows]
+        # Re-fetch user after refresh
+        user = User.get(username)
+        return render_template(
+            "admin/user_form.html",
+            user=user,
+            groups=groups,
+            properties=properties,
+            is_ldap=user.is_ldap if user else False,
+        )
+
+    return redirect(url_for("admin_users.edit_form", username=username))
+
+
+@bp.route("/refresh-all-ldap", methods=["POST"])
+@admin_required
+def refresh_all_ldap() -> Response:
+    """Refresh all LDAP users from their respective domains."""
+    from gatekeeper.services.ldap_service import is_ldap_enabled
+
+    if not is_ldap_enabled():
+        flash("LDAP is not enabled.", "error")
+        return redirect(url_for("admin_users.list_users"))
+
+    db = get_db()
+    rows = db.execute("SELECT username FROM user WHERE ldap_domain != ''").fetchall()
+
+    refreshed = 0
+    failed = 0
+    for row in rows:
+        user = User.get(str(row[0]))
+        if user:
+            success, _ = _refresh_ldap_user(user)
+            if success:
+                refreshed += 1
+            else:
+                failed += 1
+
+    _audit_log("users_ldap_refreshed_all", details=f"refreshed={refreshed}, failed={failed}")
+    flash(
+        f"Refreshed {refreshed} LDAP user(s). {failed} failed.",
+        "success" if not failed else "warning",
+    )
+    return redirect(url_for("admin_users.list_users"))

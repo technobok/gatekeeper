@@ -8,6 +8,9 @@
 {% block content %}
 <h1>Members of: {{ group.name }}</h1>
 
+{% if group.source == 'ldap' %}
+<p><mark class="secondary">LDAP group</mark> — membership is managed by LDAP.</p>
+{% else %}
 <form hx-post="{{ url_for('admin_groups.add_member', name=group.name) }}"
       hx-target="#members-list"
       hx-swap="innerHTML"
@@ -18,6 +21,7 @@
     </label>
     <button type="submit">Add</button>
 </form>
+{% endif %}
 
 <div id="members-list">
     {% include "admin/group_members_list.html" %}
@@ -28,6 +32,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='vendor/tom-select.min.js') }}"></script>
+{% if group.source != 'ldap' %}
 <script>
 (function() {
     var searchUrl = "{{ url_for('admin_groups.search_users') }}";
@@ -68,4 +73,5 @@
     });
 })();
 </script>
+{% endif %}
 {% endblock %}

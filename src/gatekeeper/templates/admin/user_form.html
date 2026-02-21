@@ -4,13 +4,24 @@
 {% block content %}
 <h1>{% if user %}Edit User: {{ user.username }}{% else %}Create User{% endif %}</h1>
 
+{% if user and is_ldap %}
+<p><mark class="secondary">LDAP User ({{ user.ldap_domain }})</mark>
+    <button class="outline" style="padding: 4px 8px; margin: 0 0 0 0.5rem;"
+            hx-post="{{ url_for('admin_users.refresh_ldap', username=user.username) }}"
+            hx-target="#user-form-container"
+            hx-swap="innerHTML">Refresh from LDAP</button>
+</p>
+{% endif %}
+
+<div id="user-form-container">
 <form method="post"
       action="{{ url_for('admin_users.edit_user', username=user.username) if user else url_for('admin_users.create_user') }}">
     <label for="username">
         Username
         <input type="text" id="username" name="username" required autofocus
                value="{{ user.username if user else '' }}"
-               placeholder="e.g. DOMAIN\jsmith or jsmith">
+               placeholder="e.g. DOMAIN\jsmith or jsmith"
+               {{ "readonly" if user and is_ldap else "" }}>
     </label>
 
     <label for="email">
@@ -18,14 +29,64 @@
         <input type="email" id="email" name="email" required
                value="{{ user.email if user else '' }}"
                placeholder="user@example.com"
-               >
+               {{ "readonly" if user and is_ldap else "" }}>
     </label>
 
     <label for="fullname">
         Full Name
         <input type="text" id="fullname" name="fullname"
                value="{{ user.fullname if user else '' }}"
-               placeholder="Jane Smith">
+               placeholder="Jane Smith"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="given_name">
+        Given Name
+        <input type="text" id="given_name" name="given_name"
+               value="{{ user.given_name if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="mail_nickname">
+        Mail Nickname
+        <input type="text" id="mail_nickname" name="mail_nickname"
+               value="{{ user.mail_nickname if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="title">
+        Title
+        <input type="text" id="title" name="title"
+               value="{{ user.title if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="department">
+        Department
+        <input type="text" id="department" name="department"
+               value="{{ user.department if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="manager">
+        Manager
+        <input type="text" id="manager" name="manager"
+               value="{{ user.manager if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="telephone_number">
+        Telephone Number
+        <input type="text" id="telephone_number" name="telephone_number"
+               value="{{ user.telephone_number if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
+    </label>
+
+    <label for="mobile_number">
+        Mobile Number
+        <input type="text" id="mobile_number" name="mobile_number"
+               value="{{ user.mobile_number if user else '' }}"
+               {{ "readonly" if user and is_ldap else "" }}>
     </label>
 
     <fieldset>
@@ -41,6 +102,7 @@
         <button type="button" class="outline secondary" onclick="location.href='{{ url_for('admin_users.list_users') }}'">Cancel</button>
     </div>
 </form>
+</div>
 
 {% if user %}
 <hr>

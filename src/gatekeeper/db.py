@@ -177,7 +177,7 @@ def get_schema_version() -> int:
         return 0
 
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 def migrate_db() -> None:
@@ -188,6 +188,9 @@ def migrate_db() -> None:
 
     if version < 2:
         _migrate_v1_to_v2()
+
+    if version < 3:
+        _migrate_v2_to_v3()
 
 
 def _migrate_v1_to_v2() -> None:
@@ -206,3 +209,18 @@ def _migrate_v1_to_v2() -> None:
             "CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username);"
         )
         cursor.execute("UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';")
+
+
+def _migrate_v2_to_v3() -> None:
+    """Add group source column and extended user LDAP fields, bump schema to 3."""
+    with transaction() as cursor:
+        cursor.execute("ALTER TABLE grp ADD COLUMN source TEXT NOT NULL DEFAULT 'gatekeeper';")
+        cursor.execute("ALTER TABLE user ADD COLUMN ldap_domain TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN given_name TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN mail_nickname TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN title TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN department TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN manager TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN telephone_number TEXT NOT NULL DEFAULT '';")
+        cursor.execute("ALTER TABLE user ADD COLUMN mobile_number TEXT NOT NULL DEFAULT '';")
+        cursor.execute("UPDATE db_metadata SET value = '3' WHERE key = 'schema_version';")
