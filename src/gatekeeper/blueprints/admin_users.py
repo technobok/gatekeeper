@@ -602,7 +602,11 @@ def _refresh_ldap_user(user: User) -> tuple[bool, str]:
 
     bare_username = user.username.split("\\", 1)[1] if "\\" in user.username else user.username
 
-    ldap_user = lookup_full_details(domain, bare_username)
+    try:
+        ldap_user = lookup_full_details(domain, bare_username)
+    except Exception as exc:
+        current_app.logger.error(f"LDAP error refreshing {user.username}: {exc}")
+        return False, f"LDAP error for '{user.username}': {exc}"
     if not ldap_user:
         return False, f"User '{user.username}' not found in LDAP domain '{domain}'."
 
@@ -672,8 +676,12 @@ def refresh_ldap(username: str) -> str | Response:
 
 @bp.route("/refresh-all-ldap", methods=["POST"])
 @admin_required
-def refresh_all_ldap() -> Response:
-    """Refresh all LDAP users from their respective domains."""
+def refresh_all_ldap() -> str | Response:
+    """Refresh LDAP users one at a time via HTMX chaining.
+
+    Each request processes one user and returns a progress fragment that
+    auto-triggers the next request, keeping each within gunicorn timeout.
+    """
     from gatekeeper.services.ldap_service import is_ldap_enabled
 
     if not is_ldap_enabled():
@@ -681,22 +689,58 @@ def refresh_all_ldap() -> Response:
         return redirect(url_for("admin_users.list_users"))
 
     db = get_db()
-    rows = db.execute("SELECT username FROM user WHERE ldap_domain != ''").fetchall()
+    usernames = [
+        str(r[0])
+        for r in db.execute(
+            "SELECT username FROM user WHERE ldap_domain != '' ORDER BY username"
+        ).fetchall()
+    ]
+    total = len(usernames)
 
-    refreshed = 0
-    failed = 0
-    for row in rows:
-        user = User.get(str(row[0]))
+    if total == 0:
+        if _is_htmx():
+            return "<p>No LDAP users to refresh.</p>"
+        flash("No LDAP users to refresh.", "info")
+        return redirect(url_for("admin_users.list_users"))
+
+    offset = int(request.form.get("offset", request.args.get("offset", 0)))
+    refreshed = int(request.form.get("refreshed", request.args.get("refreshed", 0)))
+    failed = int(request.form.get("failed", request.args.get("failed", 0)))
+
+    # Process one user
+    if offset < total:
+        user = User.get(usernames[offset])
         if user:
             success, _ = _refresh_ldap_user(user)
             if success:
                 refreshed += 1
             else:
                 failed += 1
+        offset += 1
 
+    # More users to process — return progress with auto-trigger for next
+    if offset < total:
+        next_url = url_for(
+            "admin_users.refresh_all_ldap",
+            offset=offset,
+            refreshed=refreshed,
+            failed=failed,
+        )
+        return (
+            f'<div hx-post="{next_url}" hx-trigger="load" '
+            f'hx-target="#ldap-refresh-status" hx-swap="innerHTML">'
+            f'<p aria-busy="true">Refreshing LDAP users... ({offset}/{total})</p>'
+            f"</div>"
+        )
+
+    # All done
     _audit_log("users_ldap_refreshed_all", details=f"refreshed={refreshed}, failed={failed}")
-    flash(
-        f"Refreshed {refreshed} LDAP user(s). {failed} failed.",
-        "success" if not failed else "warning",
-    )
+    status = "success" if not failed else "warning"
+    msg = f"Refreshed {refreshed} LDAP user(s). {failed} failed."
+
+    if _is_htmx():
+        icon = "&#x2705;" if not failed else "&#x26A0;&#xFE0F;"
+        return f"<p>{icon} {msg}</p>"
+
+    flash(msg, status)
     return redirect(url_for("admin_users.list_users"))
