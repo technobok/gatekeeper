@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch givenName and photos (thumbnailPhoto, jpegPhoto) from AD/LDAP for all database users.
+"""Fetch user details and photos from AD/LDAP for all database users.
 
 Connects to the configured LDAP domains and attempts to retrieve:
-  - givenName: an informal/first name for the user
+  - givenName: first name
+  - mailNickname: Exchange alias (often a natural short name)
+  - title: job title
+  - department: department
+  - physicalDeliveryOfficeName: office location
+  - manager: distinguished name of their manager
+  - telephoneNumber: office phone
+  - mobile: mobile phone
+  - userAccountControl: account status flags
+  - memberOf: AD group memberships
   - thumbnailPhoto: small user photo (typically from AD)
   - jpegPhoto: larger user photo (standard LDAP attribute)
 
@@ -16,14 +25,51 @@ Usage:
 import re
 import sys
 
+# Text attributes to fetch and display
+TEXT_ATTRS = [
+    "givenName",
+    "mailNickname",
+    "title",
+    "department",
+    "physicalDeliveryOfficeName",
+    "manager",
+    "telephoneNumber",
+    "mobile",
+    "userAccountControl",
+]
+
+# Multi-valued text attribute
+MULTI_ATTRS = [
+    "memberOf",
+]
+
+# Binary photo attributes
+PHOTO_ATTRS = [
+    ("thumbnailPhoto", "thumb"),
+    ("jpegPhoto", "photo"),
+]
+
+ALL_ATTR_NAMES = (
+    TEXT_ATTRS
+    + MULTI_ATTRS
+    + [name for name, _ in PHOTO_ATTRS]
+)
+
 
 def sanitise_filename(username: str) -> str:
     """Convert a username to a safe filename (no slashes, backslashes, etc.)."""
     return re.sub(r'[\\/:*?"<>|]', "_", username)
 
 
+def decode_value(val: bytes | str) -> str:
+    """Decode a single LDAP attribute value to a string."""
+    if isinstance(val, bytes):
+        return val.decode("utf-8", errors="replace")
+    return str(val)
+
+
 def fetch_ldap_attrs(app, domain: str, bare_username: str) -> dict | None:
-    """Query LDAP for givenName, thumbnailPhoto, and jpegPhoto.
+    """Query LDAP for user details and photos.
 
     Returns a dict of raw attribute values on success, or None on failure.
     """
@@ -50,8 +96,6 @@ def fetch_ldap_attrs(app, domain: str, bare_username: str) -> dict | None:
         "{username}", ldap.filter.escape_filter_chars(bare_username)
     )
 
-    attrs_to_fetch = ["givenName", "thumbnailPhoto", "jpegPhoto"]
-
     try:
         conn = ldap.initialize(server)
         conn.set_option(ldap.OPT_REFERRALS, 0)
@@ -63,7 +107,7 @@ def fetch_ldap_attrs(app, domain: str, bare_username: str) -> dict | None:
             conn.simple_bind_s("", "")
 
         results = conn.search_s(
-            base_dn, ldap.SCOPE_SUBTREE, search_filter, attrs_to_fetch
+            base_dn, ldap.SCOPE_SUBTREE, search_filter, ALL_ATTR_NAMES
         )
         conn.unbind_s()
 
@@ -100,9 +144,7 @@ def main() -> None:
         users = User.get_all(limit=100_000)
         print(f"Total users in database: {len(users)}\n")
 
-        found_given = 0
-        found_thumb = 0
-        found_jpeg = 0
+        counts: dict[str, int] = {name: 0 for name in ALL_ATTR_NAMES}
         skipped = 0
 
         for user in users:
@@ -129,55 +171,50 @@ def main() -> None:
                 skipped += 1
                 continue
 
-            # -- givenName --
-            given_raw = attrs.get("givenName", [])
-            if given_raw:
-                val = given_raw[0]
-                given_name = val.decode("utf-8", errors="replace") if isinstance(val, bytes) else str(val)
-                print(f"  {username}: givenName = {given_name}")
-                found_given += 1
-            else:
-                given_name = None
-                print(f"  {username}: givenName not set")
+            # -- single-valued text attributes --
+            for attr_name in TEXT_ATTRS:
+                raw = attrs.get(attr_name, [])
+                if raw:
+                    print(f"  {username}: {attr_name} = {decode_value(raw[0])}")
+                    counts[attr_name] += 1
+                else:
+                    print(f"  {username}: {attr_name} not set")
 
+            # -- multi-valued text attributes --
+            for attr_name in MULTI_ATTRS:
+                raw = attrs.get(attr_name, [])
+                if raw:
+                    values = [decode_value(v) for v in raw]
+                    print(f"  {username}: {attr_name} ({len(values)} entries)")
+                    for v in values:
+                        print(f"    - {v}")
+                    counts[attr_name] += 1
+                else:
+                    print(f"  {username}: {attr_name} not set")
+
+            # -- photo attributes --
             safe_name = sanitise_filename(username)
-
-            # -- thumbnailPhoto --
-            thumb_raw = attrs.get("thumbnailPhoto", [])
-            if thumb_raw:
-                photo_data = thumb_raw[0]
-                if isinstance(photo_data, bytes) and len(photo_data) > 0:
-                    path = f"{safe_name}_thumb.jpg"
-                    with open(path, "wb") as f:
-                        f.write(photo_data)
-                    print(f"  {username}: thumbnailPhoto saved -> {path} ({len(photo_data)} bytes)")
-                    found_thumb += 1
+            for attr_name, suffix in PHOTO_ATTRS:
+                raw = attrs.get(attr_name, [])
+                if raw:
+                    photo_data = raw[0]
+                    if isinstance(photo_data, bytes) and len(photo_data) > 0:
+                        path = f"{safe_name}_{suffix}.jpg"
+                        with open(path, "wb") as f:
+                            f.write(photo_data)
+                        print(f"  {username}: {attr_name} saved -> {path} ({len(photo_data)} bytes)")
+                        counts[attr_name] += 1
+                    else:
+                        print(f"  {username}: {attr_name} empty")
                 else:
-                    print(f"  {username}: thumbnailPhoto empty")
-            else:
-                print(f"  {username}: thumbnailPhoto not set")
-
-            # -- jpegPhoto --
-            jpeg_raw = attrs.get("jpegPhoto", [])
-            if jpeg_raw:
-                photo_data = jpeg_raw[0]
-                if isinstance(photo_data, bytes) and len(photo_data) > 0:
-                    path = f"{safe_name}_photo.jpg"
-                    with open(path, "wb") as f:
-                        f.write(photo_data)
-                    print(f"  {username}: jpegPhoto saved -> {path} ({len(photo_data)} bytes)")
-                    found_jpeg += 1
-                else:
-                    print(f"  {username}: jpegPhoto empty")
-            else:
-                print(f"  {username}: jpegPhoto not set")
+                    print(f"  {username}: {attr_name} not set")
 
         print(f"\n--- Summary ---")
         print(f"Users processed : {len(users)}")
         print(f"Not in LDAP     : {skipped}")
-        print(f"givenName found : {found_given}")
-        print(f"thumbnailPhoto  : {found_thumb}")
-        print(f"jpegPhoto       : {found_jpeg}")
+        max_label = max(len(name) for name in ALL_ATTR_NAMES)
+        for name in ALL_ATTR_NAMES:
+            print(f"{name:<{max_label}} : {counts[name]}")
 
 
 if __name__ == "__main__":
