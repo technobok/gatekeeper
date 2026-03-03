@@ -335,21 +335,24 @@ class GatekeeperClient:
         setup_flask_integration(app, self, cookie_name)
 
     def set_session_cookie(
-        self, response: Any, user: User, lifetime_seconds: int = 86400 * 365
+        self, response: Any, user: User, lifetime_seconds: int = 86400 * 365,
+        *, secure: bool | None = None,
     ) -> None:
         """Create an auth token and set the session cookie on a response.
 
         Ensures the token lifetime and cookie max_age always match.
+        Works with both Flask and Quart: pass secure=request.is_secure for Quart.
         """
-        from flask import request
-
+        if secure is None:
+            from flask import request
+            secure = request.is_secure
         token = self.create_auth_token(user, lifetime_seconds=lifetime_seconds)
         response.set_cookie(
             self._cookie_name,
             token,
             max_age=lifetime_seconds,
             httponly=True,
-            secure=request.is_secure,
+            secure=secure,
             samesite="Lax",
         )
 
