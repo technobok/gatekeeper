@@ -9,9 +9,9 @@
     --pico-form-element-spacing-horizontal: 0.75rem;
 
     /* Light/dark mode toggle dimensions (px to avoid sub-pixel snapping) */
-    --mode-slot-width: 72px;
-    --mode-slot-height: 32px;
-    --mode-button-size: 29px;
+    --mode-slot-width: 68px;
+    --mode-slot-height: 28px;
+    --mode-button-size: 24px;
     --mode-button-translatey: 2px;
     --mode-button-translatex: 40px;
     --mode-button-translatex-checked: 3px;
@@ -87,8 +87,8 @@ html.trans footer {
     position: relative;
     height: var(--mode-slot-height);
     width: var(--mode-slot-width);
-    border: 5px solid #e4e7ec;
-    border-radius: 999px;
+    border: 2px solid #e4e7ec;
+    border-radius: 10em;
     background-color: white;
     box-shadow: 1px 2px 5px #eeeeef;
     transition: background-color 250ms !important;
@@ -107,13 +107,13 @@ html.trans footer {
     width: var(--mode-button-size);
     border-radius: 50%;
     background-color: #ffeccf;
-    box-shadow: inset 0px 0px 0px 3px #ffbb52;
+    box-shadow: inset 0px 0px 0px 0.2em #ffbb52;
     transition: background-color 250ms, border-color 250ms, transform 500ms cubic-bezier(.19,1.66,.56,.87) !important;
 }
 
 .mode-checkbox:checked ~ .mode-slot .mode-button {
     background-color: #485367;
-    box-shadow: inset 0px 0px 0px 3px white;
+    box-shadow: inset 0px 0px 0px 0.2em white;
     transform: translate(var(--mode-button-translatex-checked), var(--mode-button-translatey));
 }
 
