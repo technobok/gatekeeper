@@ -10,7 +10,10 @@ dependencies = [
     "gunicorn>=23.0",
     "openpyxl>=3.1",
     "httpx>=0.27",
-    "python-ldap>=3.4",
+    # python-ldap is a C extension that cannot build on Windows (no OpenLDAP
+    # headers). Only the server (Linux/Docker) and local-backend lookups use it;
+    # the HTTP client degrades gracefully when it is absent.
+    "python-ldap>=3.4; sys_platform != 'win32'",
     "click>=8.0",
 ]
 
