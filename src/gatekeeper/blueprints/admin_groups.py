@@ -42,14 +42,23 @@ def _audit_log(action: str, target: str | None = None, details: str | None = Non
     )
 
 
-def _groups_with_counts() -> list[dict]:
-    """Get all groups with their member counts."""
+def _groups_with_counts(search: str | None = None) -> list[dict]:
+    """Get groups with their member counts, optionally filtered by name or description."""
+    params: list[str] = []
+    where = ""
+    if search:
+        where = " WHERE (g.name LIKE ? OR g.description LIKE ?)"
+        like = f"%{search}%"
+        params.extend([like, like])
+
     db = get_db()
     rows = db.execute(
         "SELECT g.name, g.description, g.created_at, g.updated_at, "
         "COUNT(gu.username) AS member_count, g.source "
-        "FROM grp g LEFT JOIN group_user gu ON g.name = gu.group_name "
-        "GROUP BY g.name ORDER BY g.name"
+        "FROM grp g LEFT JOIN group_user gu ON g.name = gu.group_name"
+        f"{where} "
+        "GROUP BY g.name ORDER BY g.name",
+        params,
     ).fetchall()
     return [
         {
@@ -67,11 +76,13 @@ def _groups_with_counts() -> list[dict]:
 @bp.route("/")
 @admin_required
 def list_groups() -> str:
-    """List all groups with member counts."""
-    groups = _groups_with_counts()
+    """List groups with member counts, filtered by an optional search."""
+    search = request.args.get("search", "").strip() or None
+    groups = _groups_with_counts(search)
+    context = {"groups": groups, "search": search or ""}
     if _is_htmx():
-        return render_template("admin/groups_table.html", groups=groups)
-    return render_template("admin/groups.html", groups=groups)
+        return render_template("admin/groups_table.html", **context)
+    return render_template("admin/groups.html", **context)
 
 
 @bp.route("/export")
@@ -264,29 +275,26 @@ def remove_member(name: str, username: str) -> str | Response:
 @bp.route("/users/search")
 @admin_required
 def search_users() -> Response:
-    """Search users for tom-select typeahead (returns JSON)."""
-    query = request.args.get("q", "").strip().lower()
-    all_users = User.get_all(limit=500)
-    results = []
-    for user in all_users:
-        if (
-            query
-            and query not in user.username.lower()
-            and query not in user.email.lower()
-            and query not in user.fullname.lower()
-        ):
-            continue
-        results.append(
+    """Search users for tom-select typeahead (returns JSON).
+
+    The search runs in SQL over the whole user table. It used to fetch the first
+    500 users ordered by username and filter those in Python, which meant that
+    on an installation with more than 500 users everyone sorting after the
+    500th was simply unfindable, however precisely you typed their name.
+    """
+    query = request.args.get("q", "").strip()
+    users = User.get_all(search=query or None, limit=30)
+    return jsonify(
+        [
             {
                 "value": user.username,
                 "text": user.username,
                 "email": user.email,
                 "fullname": user.fullname,
             }
-        )
-        if len(results) >= 30:
-            break
-    return jsonify(results)
+            for user in users
+        ]
+    )
 
 
 @bp.route("/copy-memberships", methods=["POST"])

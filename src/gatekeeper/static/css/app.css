@@ -213,6 +213,29 @@ header nav button {
     vertical-align: middle;
 }
 
+/* A submit button that reads as a nav link.
+ *
+ * Logout stays a POST — a GET link would let any page, prefetcher or crawler
+ * sign the user out — so it cannot simply become an <a>. This makes it look
+ * like the Users / Groups / System links beside it. */
+header nav button.linklike {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: auto;
+    font: inherit;
+    color: var(--pico-primary);
+    /* The nav links beside it are not underlined, so this is not either. */
+    text-decoration: none;
+    cursor: pointer;
+}
+
+header nav button.linklike:hover {
+    color: var(--pico-primary-hover);
+    text-decoration: underline;
+}
+
 /* Stat cards */
 .grid article header {
     text-align: center;
