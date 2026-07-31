@@ -27,7 +27,7 @@ def get_db_path() -> str:
         from flask import current_app
 
         return current_app.config["DATABASE_PATH"]
-    except (RuntimeError, KeyError):
+    except RuntimeError, KeyError:
         pass
 
     source_root = Path(__file__).parent.parent.parent

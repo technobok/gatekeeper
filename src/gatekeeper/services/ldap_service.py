@@ -96,8 +96,8 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
 
     try:
         conn = ldap.initialize(server)
-        conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
-        conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
+        conn.set_option(ldap.OPT_REFERRALS, 0)  # ty: ignore[unresolved-attribute]
+        conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # ty: ignore[unresolved-attribute]
 
         if bind_dn:
             conn.simple_bind_s(bind_dn, bind_password)
@@ -110,7 +110,7 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
 
         results = conn.search_s(
             base_dn,
-            ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
+            ldap.SCOPE_SUBTREE,  # ty: ignore[unresolved-attribute]
             search_filter,
             fetch_attrs,
         )
@@ -170,8 +170,8 @@ def lookup_by_email(email: str) -> LdapUser | None:
 
         try:
             conn = ldap.initialize(server)
-            conn.set_option(ldap.OPT_REFERRALS, 0)  # type: ignore[attr-defined]
-            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # type: ignore[attr-defined]
+            conn.set_option(ldap.OPT_REFERRALS, 0)  # ty: ignore[unresolved-attribute]
+            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10)  # ty: ignore[unresolved-attribute]
 
             if bind_dn:
                 conn.simple_bind_s(bind_dn, bind_password)
@@ -182,7 +182,7 @@ def lookup_by_email(email: str) -> LdapUser | None:
 
             results = conn.search_s(
                 base_dn,
-                ldap.SCOPE_SUBTREE,  # type: ignore[attr-defined]
+                ldap.SCOPE_SUBTREE,  # ty: ignore[unresolved-attribute]
                 search_filter,
                 fetch_attrs,
             )

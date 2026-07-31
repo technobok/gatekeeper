@@ -51,7 +51,7 @@ def verify_auth_token(token: str) -> User | None:
 
     try:
         payload = s.loads(token, salt=AUTH_TOKEN_SALT)
-    except (BadSignature, SignatureExpired):
+    except BadSignature, SignatureExpired:
         return None
 
     # Check version
@@ -115,7 +115,7 @@ def verify_magic_link_token(token: str) -> tuple[User, str] | None:
 
     try:
         payload = s.loads(token, salt=MAGIC_LINK_SALT, max_age=max_age)
-    except (BadSignature, SignatureExpired):
+    except BadSignature, SignatureExpired:
         return None
 
     username = payload.get("u")

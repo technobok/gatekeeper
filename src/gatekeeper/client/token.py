@@ -44,7 +44,7 @@ def decode_auth_token(secret_key: str, token: str) -> dict[str, Any] | None:
     s = create_serializer(secret_key)
     try:
         payload = s.loads(token, salt=AUTH_TOKEN_SALT)
-    except (BadSignature, SignatureExpired):
+    except BadSignature, SignatureExpired:
         return None
 
     if payload.get("v") != TOKEN_VERSION:
@@ -82,6 +82,6 @@ def decode_magic_link_token(
     s = create_serializer(secret_key)
     try:
         payload = s.loads(token, salt=MAGIC_LINK_SALT, max_age=max_age)
-    except (BadSignature, SignatureExpired):
+    except BadSignature, SignatureExpired:
         return None
     return payload

@@ -128,7 +128,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         if isinstance(value, str):
             try:
                 value = json.loads(value)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 return str(value)
         return json.dumps(value, indent=2)
 
@@ -218,7 +218,7 @@ def _load_config_from_db(app: Flask) -> None:
     if any((x_for, x_proto, x_host, x_prefix)):
         from werkzeug.middleware.proxy_fix import ProxyFix
 
-        app.wsgi_app = ProxyFix(  # type: ignore[assignment]
+        app.wsgi_app = ProxyFix(  # ty: ignore[invalid-assignment]
             app.wsgi_app, x_for=x_for, x_proto=x_proto, x_host=x_host, x_prefix=x_prefix
         )
 
