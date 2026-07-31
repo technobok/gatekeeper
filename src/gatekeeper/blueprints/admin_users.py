@@ -556,25 +556,29 @@ def remove_user_group(username: str, group_name: str) -> str | Response:
 @bp.route("/groups/search")
 @admin_required
 def search_groups() -> Response:
-    """Search groups for tom-select typeahead (returns JSON)."""
-    query = request.args.get("q", "").strip().lower()
-    all_groups = Group.get_all()
-    results = []
-    for grp in all_groups:
-        if grp.source == "ldap":
-            continue
-        if query and query not in grp.name.lower() and query not in grp.description.lower():
-            continue
-        results.append(
+    """Search groups for tom-select typeahead (returns JSON).
+
+    Filtering and capping both happen in SQL. Reading every group in order to
+    discard most of them in Python worked only because there is no limit on the
+    read; the moment one were added, the cap would apply before the filter and
+    groups would go missing, which is exactly what happened to the user
+    typeahead on the group members page.
+
+    LDAP-sourced groups are left out: their membership belongs to the directory
+    and cannot be changed from here.
+    """
+    query = request.args.get("q", "").strip()
+    groups = Group.get_all(search=query or None, exclude_ldap=True, limit=30)
+    return jsonify(
+        [
             {
                 "value": grp.name,
                 "text": grp.name,
                 "description": grp.description,
             }
-        )
-        if len(results) >= 30:
-            break
-    return jsonify(results)
+            for grp in groups
+        ]
+    )
 
 
 def _refresh_ldap_user(user: User) -> tuple[bool, str]:

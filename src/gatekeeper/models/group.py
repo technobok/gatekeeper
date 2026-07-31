@@ -68,10 +68,40 @@ class Group:
             cursor.execute("DELETE FROM grp WHERE name = ?", (self.name,))
 
     @staticmethod
-    def get_all() -> list[Group]:
-        """Get all groups."""
+    def get_all(
+        search: str | None = None,
+        exclude_ldap: bool = False,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[Group]:
+        """Get groups with optional filtering, done in SQL.
+
+        Unlike User.get_all, `limit` defaults to None and so returns everything:
+        callers here expect the full list, and there are far fewer groups than
+        users. Pass a limit when feeding a typeahead.
+        """
+        conditions: list[str] = []
+        params: list[str | int] = []
+
+        if exclude_ldap:
+            conditions.append("source <> 'ldap'")
+
+        if search:
+            conditions.append("(name LIKE ? OR description LIKE ?)")
+            like = f"%{search}%"
+            params.extend([like, like])
+
+        where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+
+        tail = ""
+        if limit is not None:
+            tail = " LIMIT ? OFFSET ?"
+            params.extend([limit, offset])
+
         db = get_db()
-        rows = db.execute(f"SELECT {_GROUP_COLUMNS} FROM grp ORDER BY name").fetchall()
+        rows = db.execute(
+            f"SELECT {_GROUP_COLUMNS} FROM grp{where} ORDER BY name{tail}", params
+        ).fetchall()
         return [Group._from_row(row) for row in rows]
 
     @staticmethod
