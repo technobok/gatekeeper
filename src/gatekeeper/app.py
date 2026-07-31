@@ -41,9 +41,7 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     instance_path.mkdir(parents=True, exist_ok=True)
 
-    app = Flask(
-        "gatekeeper", instance_path=str(instance_path), instance_relative_config=True
-    )
+    app = Flask("gatekeeper", instance_path=str(instance_path), instance_relative_config=True)
 
     # Minimal defaults before DB config is loaded
     app.config.from_mapping(

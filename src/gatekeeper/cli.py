@@ -354,7 +354,7 @@ def ensure_admins_command():
     """Ensure ADMIN_EMAILS from config have accounts and are in the admin group."""
     app = _make_app()
     with app.app_context():
-        from gatekeeper import _ensure_admins
+        from gatekeeper.app import _ensure_admins
 
         _ensure_admins(app)
     click.echo("Admin accounts ensured.")

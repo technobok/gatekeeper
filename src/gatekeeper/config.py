@@ -36,7 +36,12 @@ REGISTRY: list[ConfigEntry] = [
     ConfigEntry("server.dev_host", ConfigType.STRING, "127.0.0.1", "Bind address for dev server"),
     ConfigEntry("server.dev_port", ConfigType.INT, 5100, "Port for dev server"),
     ConfigEntry("server.debug", ConfigType.BOOL, False, "Enable Flask debug mode"),
-    ConfigEntry("server.login_url", ConfigType.STRING, "", "Public URL of Gatekeeper login page for centralised SSO"),
+    ConfigEntry(
+        "server.login_url",
+        ConfigType.STRING,
+        "",
+        "Public URL of Gatekeeper login page for centralised SSO",
+    ),
     # -- mail --
     ConfigEntry("mail.mail_sender", ConfigType.STRING, "", "Email sender address"),
     # -- outbox --
