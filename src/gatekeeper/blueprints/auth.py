@@ -246,7 +246,13 @@ def _try_trusted_header_login(
         flash("Access is restricted to administrators.", "error")
         return None
 
-    magic_token = token_service.create_magic_link_token(user.username, redirect_url=next_url)
+    # An empty redirect is deliberate in SSO mode: the calling app substitutes
+    # its own landing page. Gatekeeper's own login has no such fallback, so it
+    # keeps the index.
+    magic_token = token_service.create_magic_link_token(
+        user.username,
+        redirect_url=next_url or ("" if sso_callback_url else url_for("index")),
+    )
     if sso_callback_url:
         sep = "&" if "?" in sso_callback_url else "?"
         verify_url = f"{sso_callback_url}{sep}token={magic_token}"
@@ -284,7 +290,14 @@ def login() -> str | Response:
         sso_callback_url = request.args.get("callback_url", "")
         next_url = request.args.get("next", url_for("index"))
 
-        entra_redirect = _try_trusted_header_login(next_url, app_name, sso_callback_url)
+        # Pass the raw value, not the index fallback: with a callback_url the
+        # destination belongs to the calling app, and an empty redirect leaves
+        # the app to choose its own landing page. Sending someone to
+        # Gatekeeper's index instead lands them on an admin-only page, which
+        # bounces them back to this login form having actually signed in.
+        entra_redirect = _try_trusted_header_login(
+            request.args.get("next", ""), app_name, sso_callback_url
+        )
         if entra_redirect is not None:
             return entra_redirect
 
