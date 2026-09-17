@@ -19,6 +19,7 @@ from flask import (
 from werkzeug.wrappers import Response
 
 from gatekeeper.db import get_db
+from gatekeeper.models.app_setting import AppSetting
 from gatekeeper.models.group import Group
 from gatekeeper.models.user import User
 from gatekeeper.services import email_service, token_service
@@ -172,6 +173,90 @@ def _auto_provision(ldap_user: Any) -> User:
     return user
 
 
+def _live_setting(key: str) -> str | int | bool | list[str]:
+    """Read a config value straight from the database.
+
+    Deliberately bypasses ``app.config``, which is only populated at startup.
+    The Entra switch has to take effect on the very next request, so that it can
+    be used to turn the feature off in a hurry without bouncing the container.
+    """
+    from gatekeeper.config import parse_value, resolve_entry
+
+    entry = resolve_entry(key)
+    if entry is None:
+        raise KeyError(f"Unknown config key: {key}")
+
+    raw = AppSetting.get(key)
+    return entry.default if raw is None else parse_value(entry, raw)
+
+
+def _provision_entra_user(email: str, fullname: str) -> User | None:
+    """Create a user from Entra claims, for someone in neither the DB nor LDAP."""
+    username = email.split("@", 1)[0].lower()
+    if not username:
+        return None
+
+    # A username collision means this local part belongs to somebody else --
+    # the email lookup would have found them otherwise. Never take that account over.
+    if User.get(username) is not None:
+        logger.warning(f"Entra login for {email} collides with existing user {username}")
+        return None
+
+    user = User.create(username=username, email=email, fullname=fullname or username)
+
+    group = Group.get("standard")
+    if group:
+        group.add_member(user.username)
+
+    logger.info(f"Auto-provisioned Entra user: {user.username} ({email})")
+    _audit_log("entra_provision", user.username, f"Entra auto-provisioned: {email}")
+    return user
+
+
+def _try_trusted_header_login(
+    next_url: str, app_name: str, sso_callback_url: str
+) -> Response | None:
+    """Complete a login from proxy-supplied identity headers, when present.
+
+    Caddy strips ``X-Auth-*`` from inbound requests, so the only way one of these
+    headers reaches us is for oauth2-proxy to have authenticated the user against
+    Entra. Returns a redirect carrying a magic-link token, or None to let the
+    caller fall back to the ordinary email form.
+    """
+    if not _live_setting("auth.trusted_header_enabled"):
+        return None
+
+    email = request.headers.get(str(_live_setting("auth.trusted_header_email")), "").strip()
+    if not email:
+        return None
+
+    user, error = _resolve_identifier(email)
+    if user is None:
+        fullname = request.headers.get(str(_live_setting("auth.trusted_header_name")), "").strip()
+        user = _provision_entra_user(email, fullname)
+
+    if user is None:
+        logger.warning(f"Trusted header login failed for {email}: {error}")
+        flash("Could not sign you in automatically. Please use your email below.", "error")
+        return None
+
+    # Logging in to Gatekeeper itself stays admin-only, exactly as the form does.
+    if not sso_callback_url and not Group.user_in_group(user.username, "admin"):
+        _audit_log("login_rejected", user.username, "Non-admin Entra login attempt")
+        flash("Access is restricted to administrators.", "error")
+        return None
+
+    magic_token = token_service.create_magic_link_token(user.username, redirect_url=next_url)
+    if sso_callback_url:
+        sep = "&" if "?" in sso_callback_url else "?"
+        verify_url = f"{sso_callback_url}{sep}token={magic_token}"
+    else:
+        verify_url = url_for("auth.verify", token=magic_token, _external=True)
+
+    _audit_log("entra_login", user.username, f"Trusted header login ({email}, app={app_name})")
+    return redirect(verify_url)
+
+
 def _audit_log(action: str, target: str | None = None, details: str | None = None) -> None:
     """Write to the audit log."""
     from datetime import UTC, datetime
@@ -198,6 +283,11 @@ def login() -> str | Response:
         app_name = request.args.get("app_name", "")
         sso_callback_url = request.args.get("callback_url", "")
         next_url = request.args.get("next", url_for("index"))
+
+        entra_redirect = _try_trusted_header_login(next_url, app_name, sso_callback_url)
+        if entra_redirect is not None:
+            return entra_redirect
+
         return render_template(
             "auth/login.html",
             next_url=next_url,

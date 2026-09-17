@@ -53,6 +53,28 @@ REGISTRY: list[ConfigEntry] = [
         "auth.magic_link_expiry_seconds", ConfigType.INT, 3600, "Magic link token lifetime"
     ),
     ConfigEntry("auth.admin_emails", ConfigType.STRING_LIST, [], "Auto-provisioned admin emails"),
+    # -- trusted header auth (Entra via oauth2-proxy) --
+    # Read live from AppSetting on each login request, not from app.config, so the
+    # switch takes effect without restarting the container.  Default off so that
+    # deploying this ahead of the Caddy change cannot trust unstripped headers.
+    ConfigEntry(
+        "auth.trusted_header_enabled",
+        ConfigType.BOOL,
+        False,
+        "Trust proxy-supplied identity headers for external (Entra) logins",
+    ),
+    ConfigEntry(
+        "auth.trusted_header_email",
+        ConfigType.STRING,
+        "X-Auth-Request-Email",
+        "Request header carrying the authenticated email address",
+    ),
+    ConfigEntry(
+        "auth.trusted_header_name",
+        ConfigType.STRING,
+        "X-Auth-Request-User",
+        "Request header carrying the authenticated user's display name",
+    ),
     # -- proxy --
     ConfigEntry("proxy.x_forwarded_for", ConfigType.INT, 0, "Trust X-Forwarded-For (hop count)"),
     ConfigEntry(

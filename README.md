@@ -224,6 +224,9 @@ All settings are stored in the SQLite database (`app_setting` table) and managed
 | `outbox.api_key` | string | | Outbox API key |
 | `auth.magic_link_expiry_seconds` | int | `3600` | Magic link token lifetime |
 | `auth.admin_emails` | string list | | Comma-separated emails to auto-provision as admins |
+| `auth.trusted_header_enabled` | bool | `false` | Trust proxy-supplied identity headers (see below) |
+| `auth.trusted_header_email` | string | `X-Auth-Request-Email` | Header carrying the authenticated email |
+| `auth.trusted_header_name` | string | `X-Auth-Request-User` | Header carrying the display name |
 | `proxy.x_forwarded_for` | int | `0` | Trust X-Forwarded-For (hop count) |
 | `proxy.x_forwarded_proto` | int | `0` | Trust X-Forwarded-Proto (hop count) |
 | `proxy.x_forwarded_host` | int | `0` | Trust X-Forwarded-Host (hop count) |
@@ -299,6 +302,49 @@ When `callback_url` is not provided, the login page behaves as before (Gatekeepe
 
 Applications that use centralised SSO: [Cadence](../cadence/), [Folio](../folio/), [Outbox](../outbox/), [SharePoint Mirror](../sharepoint-mirror/), and [Webreports](../webreports/).
 
+### External login via trusted headers (Entra)
+
+External users reach the platform through Microsoft Entra Application Proxy, which
+authenticates them before their request arrives. Rather than asking them for a
+magic link on top of that, Gatekeeper's login page can accept the identity the
+reverse proxy has already established.
+
+When the feature is on and the request carries the configured header, the GET
+handler for `/auth/login` skips the form entirely: it resolves the user, mints a
+magic-link token, and redirects straight to the calling app's `callback_url`. No
+email is sent. The application sees an ordinary magic-link callback and cannot
+tell the difference, so **no application needs changing**.
+
+Users are resolved by email through the same path as the login form — database
+lookup, then LDAP, auto-provisioning into `standard` as it already does. Someone
+who exists in Entra but in neither the database nor LDAP is created from the
+Entra claims and added to `standard`. If their username would collide with a
+different account, Gatekeeper refuses and falls back to the form rather than
+taking the account over.
+
+Both a successful login and any provisioning are written to the audit log
+(`entra_login`, `entra_provision`), so these sessions are distinguishable.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `auth.trusted_header_enabled` | `false` | Master switch |
+| `auth.trusted_header_email` | `X-Auth-Request-Email` | Header carrying the email |
+| `auth.trusted_header_name` | `X-Auth-Request-User` | Header carrying the display name |
+
+Toggle it from *Admin → System → External Authentication (Entra)*, or with
+`make config-set KEY=auth.trusted_header_enabled VAL=true`.
+
+The switch is read straight from the database on every login request rather than
+from `app.config`, which is only populated at startup — so turning it off takes
+effect on the very next request, with no restart. That matters: it is the lever
+you reach for when external logins are going wrong.
+
+**This is only safe behind a proxy that strips inbound `X-Auth-*` headers.**
+Gatekeeper trusts the header completely, so anything able to set it can log in as
+any user. The reverse proxy must remove any client-supplied copy before routing —
+see [webreports-caddy](../webreports-caddy/). Leave the setting off if you are not
+sure that is in place; it defaults to off for exactly that reason.
+
 ## Roadmap
 
 ### Done
@@ -324,6 +370,7 @@ Applications that use centralised SSO: [Cadence](../cadence/), [Folio](../folio/
 - [x] Reverse proxy support (ProxyFix configuration)
 - [x] Docker and docker-compose deployment
 - [x] Centralised SSO login (apps redirect to Gatekeeper for authentication)
+- [x] External login via trusted proxy headers (Entra / oauth2-proxy)
 
 ### Planned
 
