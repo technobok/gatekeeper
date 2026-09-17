@@ -75,6 +75,12 @@ REGISTRY: list[ConfigEntry] = [
         "X-Auth-Request-User",
         "Request header carrying the authenticated user's display name",
     ),
+    ConfigEntry(
+        "auth.trusted_header_username",
+        ConfigType.STRING,
+        "X-Auth-Request-Preferred-Username",
+        "Request header carrying the UPN, tried when the email matches no account",
+    ),
     # -- proxy --
     ConfigEntry("proxy.x_forwarded_for", ConfigType.INT, 0, "Trust X-Forwarded-For (hop count)"),
     ConfigEntry(

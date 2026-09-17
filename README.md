@@ -316,7 +316,14 @@ email is sent. The application sees an ordinary magic-link callback and cannot
 tell the difference, so **no application needs changing**.
 
 Users are resolved by email through the same path as the login form — database
-lookup, then LDAP, auto-provisioning into `standard` as it already does. Someone
+lookup, then LDAP, auto-provisioning into `standard` as it already does. If the
+email matches nothing, the UPN is tried the same way before giving up. The two
+are not interchangeable: a UPN is a sign-in name that merely looks like an
+address, and a mailbox may answer to several aliases of which the identity
+provider sends only one. Matching on the email alone would miss an account
+recorded under a different alias and create a duplicate with no group
+memberships, which presents to the user as being locked out rather than as a
+mismatch. Someone
 who exists in Entra but in neither the database nor LDAP is created from the
 Entra claims and added to `standard`. If their username would collide with a
 different account, Gatekeeper refuses and falls back to the form rather than
@@ -330,6 +337,7 @@ Both a successful login and any provisioning are written to the audit log
 | `auth.trusted_header_enabled` | `false` | Master switch |
 | `auth.trusted_header_email` | `X-Auth-Request-Email` | Header carrying the email |
 | `auth.trusted_header_name` | `X-Auth-Request-User` | Header carrying the display name |
+| `auth.trusted_header_username` | `X-Auth-Request-Preferred-Username` | Header carrying the UPN, tried if the email matches nothing |
 
 Toggle it from *Admin → System → External Authentication (Entra)*, or with
 `make config-set KEY=auth.trusted_header_enabled VAL=true`.

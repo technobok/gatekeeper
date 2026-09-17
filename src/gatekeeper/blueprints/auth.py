@@ -230,7 +230,24 @@ def _try_trusted_header_login(
     if not email:
         return None
 
-    user, error = _resolve_identifier(email)
+    # Try the UPN as well as the email. They are not the same thing: the UPN is a
+    # sign-in name that merely looks like an address, and a mailbox may answer to
+    # several aliases of which Entra sends only one. If the local account was
+    # recorded under a different one, matching on email alone would miss it and
+    # auto-provision a duplicate account with no group memberships -- which
+    # presents to the user as being locked out, not as a mismatch.
+    candidates = [email]
+    upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
+    if upn and upn.lower() != email.lower():
+        candidates.append(upn)
+
+    user: User | None = None
+    error: str | None = None
+    for identifier in candidates:
+        user, error = _resolve_identifier(identifier)
+        if user is not None:
+            break
+
     if user is None:
         fullname = request.headers.get(str(_live_setting("auth.trusted_header_name")), "").strip()
         user = _provision_entra_user(email, fullname)
