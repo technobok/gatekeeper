@@ -159,6 +159,7 @@ def _auto_provision(ldap_user: Any) -> User:
         manager=ldap_user.manager,
         telephone_number=ldap_user.telephone_number,
         mobile_number=ldap_user.mobile_number,
+        upn=ldap_user.upn,
     )
 
     # Add to standard group
@@ -281,28 +282,40 @@ def _try_trusted_header_login(
     if not email:
         return None
 
-    # Try the UPN as well as the email. They are not the same thing: the UPN is a
-    # sign-in name that merely looks like an address, and a mailbox may answer to
-    # several aliases of which Entra sends only one. If the local account was
-    # recorded under a different one, matching on email alone would miss it and
-    # auto-provision a duplicate account with no group memberships -- which
-    # presents to the user as being locked out, not as a mismatch.
-    #
-    # LDAP-provisioned accounts are keyed DOMAIN\username, which no address will
-    # ever equal, so each address also contributes that form: pawe@asiap.demant.com
-    # yields asiap\pawe. Without it an Entra login by someone who already has an
-    # LDAP account creates a second, empty one alongside it.
     upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
-    candidates = _identifier_candidates(email, upn, current_app.config.get("LDAP_DOMAINS", []))
 
-    user: User | None = None
+    # Fast path. The UPN is what the identity provider actually asserts, and it
+    # is unique and indexed, so a stamped account resolves in a single lookup --
+    # no derivation, no LDAP. Working out who someone is from an email address,
+    # for a person the identity provider has just authenticated, is work that
+    # should need doing once at most.
+    user = User.get_by_upn(upn)
+    matched: str | None = f"upn:{upn}" if user else None
     error: str | None = None
-    matched: str | None = None
-    for identifier in candidates:
-        user, error = _resolve_identifier(identifier)
-        if user is not None:
-            matched = identifier
-            break
+    candidates: list[str] = []
+
+    if user is None:
+        # Slow path, for accounts not yet stamped. This is also the only path
+        # that can reach LDAP.
+        candidates = _identifier_candidates(email, upn, current_app.config.get("LDAP_DOMAINS", []))
+        for identifier in candidates:
+            user, error = _resolve_identifier(identifier)
+            if user is not None:
+                matched = identifier
+                break
+
+        # Stamp the UPN so this account takes the fast path from now on. Filled
+        # in only when empty: overwriting would let one person's login quietly
+        # reassign another's, and the unique index would refuse it in any case.
+        if user is not None and upn and not user.upn:
+            try:
+                user.update(upn=upn)
+                logger.info(f"Recorded UPN {upn!r} against {user.username!r}")
+            except Exception:
+                logger.warning(
+                    f"Could not record UPN {upn!r} against {user.username!r}; "
+                    f"it is probably already held by another account"
+                )
 
     logger.info(
         f"Trusted header login: email={email!r} upn={upn!r} "
@@ -525,6 +538,25 @@ def whoami() -> Response:
         ]
         return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
+    stamped = User.get_by_upn(upn)
+    if stamped is not None:
+        lines += [
+            f"Matched directly on UPN: {stamped.username}",
+            "  One indexed lookup. No derivation, no LDAP.",
+            "",
+        ]
+        groups = ", ".join(Group.get_groups_for_user(stamped.username)) or "(none)"
+        lines += [
+            f"  full name  {stamped.fullname or '(none)'}",
+            f"  email      {stamped.email}",
+            f"  enabled    {stamped.enabled}",
+            f"  groups     {groups}",
+        ]
+        return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+    lines.append("No account carries this UPN yet, so it falls back to matching.")
+    lines.append("A successful match records the UPN, and later logins skip this.")
+    lines.append("")
     lines.append("Identifiers tried, in order:")
     matched = None
     domains = current_app.config.get("LDAP_DOMAINS", [])

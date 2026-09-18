@@ -315,8 +315,23 @@ magic-link token, and redirects straight to the calling app's `callback_url`. No
 email is sent. The application sees an ordinary magic-link callback and cannot
 tell the difference, so **no application needs changing**.
 
-Users are resolved through the same path as the login form — database lookup,
-then LDAP — trying each of these in turn and stopping at the first match:
+A stamped account resolves in **one indexed lookup on the UPN**, with no
+derivation and no LDAP. The UPN is what the identity provider actually asserts,
+it is unique, and working out who someone is from an email address — for a person
+who has just authenticated — is work that should need doing once at most.
+
+It is populated two ways: LDAP sync reads `userPrincipalName`, so a bulk refresh
+backfills existing users; and a login that resolves by any other means records it
+on the account, so the slow path runs at most once per person. It is only ever
+filled in when empty, and the unique index refuses a UPN already held elsewhere.
+
+The manual login form is unaffected and still reaches LDAP, which it must: people
+type a bare username there, and resolving that genuinely requires a directory
+lookup.
+
+When no account carries the UPN yet, resolution falls back to the same path as
+the login form — database lookup, then LDAP — trying each of these in turn and
+stopping at the first match:
 
 1. `DOMAIN\username` for each domain in `ldap.domains`, paired with the sign-in
    name (`pawe@demant.com` with domain `ASIAP` → `ASIAP\pawe`)

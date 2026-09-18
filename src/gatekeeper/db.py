@@ -177,7 +177,7 @@ def get_schema_version() -> int:
         return 0
 
 
-CURRENT_SCHEMA_VERSION = 3
+CURRENT_SCHEMA_VERSION = 4
 
 
 def migrate_db() -> None:
@@ -191,6 +191,9 @@ def migrate_db() -> None:
 
     if version < 3:
         _migrate_v2_to_v3()
+
+    if version < 4:
+        _migrate_v3_to_v4()
 
 
 def _migrate_v1_to_v2() -> None:
@@ -209,6 +212,22 @@ def _migrate_v1_to_v2() -> None:
             "CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username);"
         )
         cursor.execute("UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';")
+
+
+def _migrate_v3_to_v4() -> None:
+    """Add the user UPN column and bump schema to 4.
+
+    The UPN is what an identity provider actually asserts. Without somewhere to
+    put it, a proxy-authenticated login has to guess its way from an email
+    address to an account, and guessing means querying LDAP -- for someone who
+    has already authenticated.
+    """
+    with transaction() as cursor:
+        cursor.execute("ALTER TABLE user ADD COLUMN upn TEXT NOT NULL DEFAULT '';")
+        cursor.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_upn ON user(LOWER(upn)) WHERE upn != '';"
+        )
+        cursor.execute("UPDATE db_metadata SET value = '4' WHERE key = 'schema_version';")
 
 
 def _migrate_v2_to_v3() -> None:

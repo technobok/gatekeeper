@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '3');
+INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '4');
 
 CREATE TABLE IF NOT EXISTS app_setting (
     key TEXT PRIMARY KEY,
@@ -28,10 +28,15 @@ CREATE TABLE IF NOT EXISTS user (
     department TEXT NOT NULL DEFAULT '',
     manager TEXT NOT NULL DEFAULT '',
     telephone_number TEXT NOT NULL DEFAULT '',
-    mobile_number TEXT NOT NULL DEFAULT ''
+    mobile_number TEXT NOT NULL DEFAULT '',
+    upn TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_email ON user(email);
+
+-- Partial and case-folded: most rows have no UPN yet, and those that do must be
+-- unique, since a UPN identifies exactly one person at the identity provider.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_upn ON user(LOWER(upn)) WHERE upn != '';
 
 CREATE TABLE IF NOT EXISTS grp (
     name TEXT PRIMARY KEY,

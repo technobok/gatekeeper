@@ -17,6 +17,7 @@ class LdapUser:
     manager: str = ""
     telephone_number: str = ""
     mobile_number: str = ""
+    upn: str = ""
     groups: list[str] | None = None
 
     def __post_init__(self) -> None:
@@ -214,6 +215,10 @@ _EXTENDED_ATTRS = [
     "manager",
     "telephoneNumber",
     "mobile",
+    # What the identity provider asserts about this person. Captured here so a
+    # bulk refresh backfills it, and proxy-authenticated logins can resolve in
+    # one indexed lookup instead of reasoning from an email address.
+    "userPrincipalName",
     "memberOf",
 ]
 
@@ -269,6 +274,7 @@ def _build_ldap_user(domain: str, sam: str, email: str, fullname: str, attrs: di
         manager=manager_cn,
         telephone_number=_get_attr(attrs, "telephoneNumber") or "",
         mobile_number=_get_attr(attrs, "mobile") or "",
+        upn=_get_attr(attrs, "userPrincipalName") or "",
         groups=group_cns,
     )
 

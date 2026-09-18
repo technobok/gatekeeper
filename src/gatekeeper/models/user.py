@@ -9,7 +9,7 @@ from gatekeeper.db import get_db, transaction
 _USER_COLUMNS = (
     "username, email, fullname, enabled, login_salt, created_at, updated_at, "
     "ldap_domain, given_name, mail_nickname, title, department, manager, "
-    "telephone_number, mobile_number"
+    "telephone_number, mobile_number, upn"
 )
 
 
@@ -30,6 +30,7 @@ class User:
     manager: str = ""
     telephone_number: str = ""
     mobile_number: str = ""
+    upn: str = ""
 
     @property
     def is_ldap(self) -> bool:
@@ -53,6 +54,7 @@ class User:
             manager=row[12] if len(row) > 12 else "",
             telephone_number=row[13] if len(row) > 13 else "",
             mobile_number=row[14] if len(row) > 14 else "",
+            upn=row[15] if len(row) > 15 else "",
         )
 
     @staticmethod
@@ -61,6 +63,19 @@ class User:
         db = get_db()
         row = db.execute(
             f"SELECT {_USER_COLUMNS} FROM user WHERE LOWER(username) = ?", (username.lower(),)
+        ).fetchone()
+        return User._from_row(row) if row else None
+
+    @staticmethod
+    def get_by_upn(upn: str) -> User | None:
+        """Get a user by UPN. Unique and indexed, so this is the fast path for
+        proxy-authenticated logins: one lookup, no derivation, no LDAP."""
+        if not upn:
+            return None
+        db = get_db()
+        row = db.execute(
+            f"SELECT {_USER_COLUMNS} FROM user WHERE LOWER(upn) = ? AND enabled = 1",
+            (upn.lower(),),
         ).fetchone()
         return User._from_row(row) if row else None
 
@@ -88,6 +103,7 @@ class User:
         manager: str = "",
         telephone_number: str = "",
         mobile_number: str = "",
+        upn: str = "",
     ) -> User:
         """Create a new user. Username is stored lowercase."""
         username = username.lower()
@@ -98,8 +114,8 @@ class User:
             cursor.execute(
                 "INSERT INTO user (username, email, fullname, enabled, login_salt, "
                 "created_at, updated_at, ldap_domain, given_name, mail_nickname, "
-                "title, department, manager, telephone_number, mobile_number) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "title, department, manager, telephone_number, mobile_number, upn) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     username,
                     email,
@@ -116,6 +132,7 @@ class User:
                     manager,
                     telephone_number,
                     mobile_number,
+                    upn,
                 ),
             )
 
@@ -135,6 +152,7 @@ class User:
             manager=manager,
             telephone_number=telephone_number,
             mobile_number=mobile_number,
+            upn=upn,
         )
 
     def update(
@@ -150,6 +168,7 @@ class User:
         manager: str | None = None,
         telephone_number: str | None = None,
         mobile_number: str | None = None,
+        upn: str | None = None,
     ) -> None:
         """Update user fields."""
         now = datetime.now(UTC).isoformat()
@@ -180,6 +199,7 @@ class User:
             "manager",
             "telephone_number",
             "mobile_number",
+            "upn",
         ):
             value = locals()[field]
             if value is not None:
