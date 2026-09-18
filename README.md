@@ -354,6 +354,12 @@ Both a successful login and any provisioning are written to the audit log
 | `auth.trusted_header_name` | *(empty)* | Header carrying a display name, if the proxy supplies one |
 | `auth.trusted_header_username` | `X-Auth-Request-Preferred-Username` | Header carrying the UPN, tried if the email matches nothing |
 
+`/auth/whoami` reports what a proxy-authenticated request actually carries: the
+headers received, every identifier tried in order, which one matched, and the
+resulting account and groups. It is read-only — the live login path lets LDAP
+auto-provision, and a diagnostic that could create accounts would be a poor
+diagnostic.
+
 Toggle it from *Admin → System → External Authentication (Entra)*, or with
 `make config-set KEY=auth.trusted_header_enabled VAL=true`.
 

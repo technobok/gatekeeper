@@ -468,6 +468,76 @@ def login() -> str | Response:
     )
 
 
+@bp.route("/whoami")
+def whoami() -> Response:
+    """Diagnostic: what the proxy sent, and how Gatekeeper resolves it.
+
+    Read-only on purpose. The live login path lets ``_resolve_identifier`` fall
+    back to LDAP, which auto-provisions whatever it finds; doing that here would
+    mean a diagnostic page could create accounts. So this reports only what is
+    already in the database, and says so.
+    """
+    email_header = str(_live_setting("auth.trusted_header_email"))
+    upn_header = str(_live_setting("auth.trusted_header_username"))
+    email = request.headers.get(email_header, "").strip()
+    upn = request.headers.get(upn_header, "").strip()
+
+    lines = [
+        "Trusted header authentication",
+        f"  enabled          {bool(_live_setting('auth.trusted_header_enabled'))}",
+        f"  {email_header}  {email or '(not sent)'}",
+        f"  {upn_header}  {upn or '(not sent)'}",
+        "",
+    ]
+
+    if not email:
+        lines += [
+            "No identity headers arrived.",
+            "",
+            "Internally that is expected: they are only added for requests that go",
+            "through the external authentication path.",
+        ]
+        return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+    lines.append("Identifiers tried, in order:")
+    matched = None
+    for n, identifier in enumerate(_identifier_candidates(email, upn), start=1):
+        if matched is not None:
+            lines.append(f"  {n}. {identifier}  (not reached)")
+            continue
+        found = User.get(identifier) if "@" not in identifier else None
+        if found is None and "@" in identifier:
+            by_email = User.get_by_email(identifier)
+            if len(by_email) > 1:
+                lines.append(f"  {n}. {identifier}  AMBIGUOUS: {len(by_email)} accounts share it")
+                continue
+            found = by_email[0] if by_email else None
+        if found is not None:
+            matched = found
+            lines.append(f"  {n}. {identifier}  MATCHED")
+        else:
+            lines.append(f"  {n}. {identifier}  no account")
+
+    lines.append("")
+    if matched is None:
+        lines += [
+            "No local account matched.",
+            "A real login would next try LDAP, and provision an account only if the",
+            "email address is not already in use.",
+        ]
+    else:
+        groups = ", ".join(Group.get_groups_for_user(matched.username)) or "(none)"
+        lines += [
+            f"Resolves to: {matched.username}",
+            f"  full name  {matched.fullname or '(none)'}",
+            f"  email      {matched.email}",
+            f"  enabled    {matched.enabled}",
+            f"  groups     {groups}",
+        ]
+
+    return Response("\n".join(lines) + "\n", mimetype="text/plain")
+
+
 @bp.route("/verify")
 def verify() -> Response:
     """Verify a magic link token and set the auth cookie."""
