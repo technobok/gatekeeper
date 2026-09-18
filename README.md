@@ -315,15 +315,30 @@ magic-link token, and redirects straight to the calling app's `callback_url`. No
 email is sent. The application sees an ordinary magic-link callback and cannot
 tell the difference, so **no application needs changing**.
 
-Users are resolved by email through the same path as the login form — database
-lookup, then LDAP, auto-provisioning into `standard` as it already does. If the
-email matches nothing, the UPN is tried the same way before giving up. The two
-are not interchangeable: a UPN is a sign-in name that merely looks like an
-address, and a mailbox may answer to several aliases of which the identity
-provider sends only one. Matching on the email alone would miss an account
-recorded under a different alias and create a duplicate with no group
-memberships, which presents to the user as being locked out rather than as a
-mismatch. Someone
+Users are resolved through the same path as the login form — database lookup,
+then LDAP — trying each of these in turn and stopping at the first match:
+
+1. `DOMAIN\username` derived from the UPN (`pawe@asiap.demant.com` → `asiap\pawe`)
+2. the email address
+3. the UPN as an address
+
+The derived name goes first because it is a primary key: it matches one account
+or none. An email address is neither unique nor reliably distinct — several
+accounts can carry the same one, and when they do the lookup gives up rather than
+guess.
+
+Nothing supplies `DOMAIN\username`; it is derived, on the assumption that the
+first domain label is the NetBIOS name and the UPN prefix is the account name.
+That holds in an AD-backed tenant and fails safe when it does not — a wrong guess
+matches nothing and the address is tried next. It is deliberately not derived
+from the email address, because an address whose local part resembles an account
+name would send an LDAP lookup after a name nobody claimed, and LDAP results are
+auto-provisioned.
+
+Only an address in use by **no** account is provisioned. If it is already in use
+the lookup was ambiguous rather than empty, and provisioning would add yet another
+account with the same address while handing the user an empty one carrying none
+of their groups. Someone
 who exists in Entra but in neither the database nor LDAP is created from the
 Entra claims and added to `standard`. If their username would collide with a
 different account, Gatekeeper refuses and falls back to the form rather than

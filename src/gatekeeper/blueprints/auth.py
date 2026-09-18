@@ -193,9 +193,23 @@ def _live_setting(key: str) -> str | int | bool | list[str]:
 def _identifier_candidates(email: str, upn: str) -> list[str]:
     """Identifiers to try, in order, for a proxy-authenticated user.
 
-    An address alone is often not enough. LDAP-provisioned accounts are keyed
-    ``DOMAIN\\username``, which no address will ever equal, so each address also
-    contributes that form: ``pawe@asiap.demant.com`` yields ``asiap\\pawe``.
+    The UPN-derived ``DOMAIN\\username`` goes first because it is a primary key,
+    so it either matches one account or none. An email address is neither unique
+    nor reliably distinct -- several accounts can carry the same one, and when
+    they do the lookup has to give up rather than guess.
+
+    ``DOMAIN\\username`` is derived, not supplied: the identity provider sends no
+    such claim, and oauth2-proxy forwards only email, user and preferred_username
+    regardless. So ``pawe@asiap.demant.com`` becomes ``asiap\\pawe`` on the
+    assumption that the first domain label is the NetBIOS name and the UPN prefix
+    is the account name. That is usually true in an AD-backed tenant and fails
+    safe when it is not: a wrong guess matches nothing and the address is tried
+    next.
+
+    Deliberately not derived from the email address. An address whose local part
+    happens to look like an account name would send an LDAP lookup after a name
+    nobody has claimed, and ``_resolve_identifier`` auto-provisions whatever LDAP
+    returns -- inventing an account from a guess.
     """
     candidates: list[str] = []
 
@@ -203,16 +217,14 @@ def _identifier_candidates(email: str, upn: str) -> list[str]:
         if value and value.lower() not in [c.lower() for c in candidates]:
             candidates.append(value)
 
-    add(email)
-    add(upn)
-
-    for address in (upn, email):
-        if "@" not in address:
-            continue
-        local, _, domain = address.partition("@")
+    if "@" in upn:
+        local, _, domain = upn.partition("@")
         first_label = domain.split(".", 1)[0]
         if local and first_label:
             add(f"{first_label}\\{local}")
+
+    add(email)
+    add(upn)
 
     return candidates
 
