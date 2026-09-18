@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
+# Set by the reverse proxy when it sees a logout, and cleared here after one
+# request. Under SSO the identity headers would otherwise sign the user straight
+# back in, making the logout button appear to do nothing.
+SIGNED_OUT_COOKIE = "entra_signedout"
+
 
 def _resolve_identifier(identifier: str) -> tuple[User | None, str | None]:
     """Resolve a login identifier to a user.
@@ -388,23 +393,37 @@ def login() -> str | Response:
         sso_callback_url = request.args.get("callback_url", "")
         next_url = request.args.get("next", url_for("index"))
 
-        # Pass the raw value, not the index fallback: with a callback_url the
-        # destination belongs to the calling app, and an empty redirect leaves
-        # the app to choose its own landing page. Sending someone to
-        # Gatekeeper's index instead lands them on an admin-only page, which
-        # bounces them back to this login form having actually signed in.
-        entra_redirect = _try_trusted_header_login(
-            request.args.get("next", ""), app_name, sso_callback_url
-        )
-        if entra_redirect is not None:
-            return entra_redirect
+        # Honour a just-signed-out marker exactly once. Otherwise logging out is
+        # futile under SSO: the app clears its session, lands here, and the
+        # identity headers sign the user straight back in without their asking.
+        just_signed_out = bool(request.cookies.get(SIGNED_OUT_COOKIE))
 
-        return render_template(
-            "auth/login.html",
-            next_url=next_url,
-            app_name=app_name,
-            callback_url=sso_callback_url,
+        if not just_signed_out:
+            # Pass the raw value, not the index fallback: with a callback_url the
+            # destination belongs to the calling app, and an empty redirect leaves
+            # the app to choose its own landing page. Sending someone to
+            # Gatekeeper's index instead lands them on an admin-only page, which
+            # bounces them back to this login form having actually signed in.
+            entra_redirect = _try_trusted_header_login(
+                request.args.get("next", ""), app_name, sso_callback_url
+            )
+            if entra_redirect is not None:
+                return entra_redirect
+
+        if just_signed_out:
+            flash("You have been signed out.", "success")
+
+        response = make_response(
+            render_template(
+                "auth/login.html",
+                next_url=next_url,
+                app_name=app_name,
+                callback_url=sso_callback_url,
+            )
         )
+        if just_signed_out:
+            response.delete_cookie(SIGNED_OUT_COOKIE, path="/")
+        return response
 
     identifier = request.form.get("identifier", "").strip()
     next_url = request.form.get("next", url_for("index"))
