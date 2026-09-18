@@ -190,6 +190,33 @@ def _live_setting(key: str) -> str | int | bool | list[str]:
     return entry.default if raw is None else parse_value(entry, raw)
 
 
+def _identifier_candidates(email: str, upn: str) -> list[str]:
+    """Identifiers to try, in order, for a proxy-authenticated user.
+
+    An address alone is often not enough. LDAP-provisioned accounts are keyed
+    ``DOMAIN\\username``, which no address will ever equal, so each address also
+    contributes that form: ``pawe@asiap.demant.com`` yields ``asiap\\pawe``.
+    """
+    candidates: list[str] = []
+
+    def add(value: str) -> None:
+        if value and value.lower() not in [c.lower() for c in candidates]:
+            candidates.append(value)
+
+    add(email)
+    add(upn)
+
+    for address in (upn, email):
+        if "@" not in address:
+            continue
+        local, _, domain = address.partition("@")
+        first_label = domain.split(".", 1)[0]
+        if local and first_label:
+            add(f"{first_label}\\{local}")
+
+    return candidates
+
+
 def _provision_entra_user(email: str, fullname: str) -> User | None:
     """Create a user from Entra claims, for someone in neither the DB nor LDAP."""
     username = email.split("@", 1)[0].lower()
@@ -236,10 +263,13 @@ def _try_trusted_header_login(
     # recorded under a different one, matching on email alone would miss it and
     # auto-provision a duplicate account with no group memberships -- which
     # presents to the user as being locked out, not as a mismatch.
-    candidates = [email]
+    #
+    # LDAP-provisioned accounts are keyed DOMAIN\username, which no address will
+    # ever equal, so each address also contributes that form: pawe@asiap.demant.com
+    # yields asiap\pawe. Without it an Entra login by someone who already has an
+    # LDAP account creates a second, empty one alongside it.
     upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
-    if upn and upn.lower() != email.lower():
-        candidates.append(upn)
+    candidates = _identifier_candidates(email, upn)
 
     user: User | None = None
     error: str | None = None

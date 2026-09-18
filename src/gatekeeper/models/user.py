@@ -66,11 +66,11 @@ class User:
 
     @staticmethod
     def get_by_email(email: str) -> list[User]:
-        """Get all users matching an email address."""
+        """Get all users matching an email address. Case-insensitive."""
         db = get_db()
         rows = db.execute(
-            f"SELECT {_USER_COLUMNS} FROM user WHERE email = ? AND enabled = 1",
-            (email,),
+            f"SELECT {_USER_COLUMNS} FROM user WHERE LOWER(email) = ? AND enabled = 1",
+            (email.lower(),),
         ).fetchall()
         return [User._from_row(row) for row in rows]
 
