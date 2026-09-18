@@ -318,9 +318,12 @@ tell the difference, so **no application needs changing**.
 Users are resolved through the same path as the login form — database lookup,
 then LDAP — trying each of these in turn and stopping at the first match:
 
-1. `DOMAIN\username` derived from the UPN (`pawe@asiap.demant.com` → `asiap\pawe`)
-2. the email address
-3. the UPN as an address
+1. `DOMAIN\username` for each domain in `ldap.domains`, paired with the sign-in
+   name (`pawe@demant.com` with domain `ASIAP` → `ASIAP\pawe`)
+2. `DOMAIN\username` derived from the UPN's own domain label
+   (`pawe@asiap.demant.com` → `asiap\pawe`)
+3. the email address
+4. the UPN as an address
 
 The derived name goes first because it is a primary key: it matches one account
 or none. An email address is neither unique nor reliably distinct — several
@@ -335,12 +338,17 @@ from the email address, because an address whose local part resembles an account
 name would send an LDAP lookup after a name nobody claimed, and LDAP results are
 auto-provisioned.
 
-Where the UPN's domain differs from the AD domain — a tenant whose users sign in
-as `someone@company.com` while the directory knows them as `CORP\someone` — step
-1 derives a name nobody has and the address is the only usable identifier. Then
-**email addresses must be unique per account**, or the login cannot proceed: two
-accounts sharing one leaves nothing to choose between. `/auth/whoami` reports
-this as `AMBIGUOUS` and names the count.
+Nothing in the token carries the AD domain. Entra sends the routable UPN, so a
+tenant signing in as `someone@company.com` while the directory knows them as
+`CORP\someone` gives no hint that `CORP` exists — which is why step 1 pairs the
+sign-in name with the domains Gatekeeper has already been told about in
+`ldap.domains`, rather than trying to infer one.
+
+With `ldap.domains` unset and a UPN domain that does not match the directory,
+the address is the only usable identifier. **Email addresses must then be unique
+per account**, or the login cannot proceed: two accounts sharing one leaves
+nothing to choose between. `/auth/whoami` reports this as `AMBIGUOUS` and names
+the count.
 
 Only an address in use by **no** account is provisioned. If it is already in use
 the lookup was ambiguous rather than empty, and provisioning would add yet another

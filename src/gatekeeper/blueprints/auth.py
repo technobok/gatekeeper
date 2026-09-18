@@ -1,7 +1,7 @@
 """Authentication blueprint - login/verify/logout (HTMX)."""
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from flask import (
@@ -195,26 +195,28 @@ def _live_setting(key: str) -> str | int | bool | list[str]:
     return entry.default if raw is None else parse_value(entry, raw)
 
 
-def _identifier_candidates(email: str, upn: str) -> list[str]:
+def _identifier_candidates(email: str, upn: str, ldap_domains: Sequence[str] = ()) -> list[str]:
     """Identifiers to try, in order, for a proxy-authenticated user.
 
-    The UPN-derived ``DOMAIN\\username`` goes first because it is a primary key,
-    so it either matches one account or none. An email address is neither unique
-    nor reliably distinct -- several accounts can carry the same one, and when
-    they do the lookup has to give up rather than guess.
+    Nothing in the token carries the AD domain. Entra sends the routable UPN, so
+    a tenant signing in as ``someone@company.com`` while the directory knows them
+    as ``CORP\\someone`` gives no hint that ``CORP`` exists. But Gatekeeper is
+    already told, in ``ldap.domains``, so each configured domain is paired with
+    the sign-in name: ``pawe@demant.com`` with domain ``ASIAP`` yields
+    ``asiap\\pawe``. These come first, being drawn from configuration rather than
+    guessed.
 
-    ``DOMAIN\\username`` is derived, not supplied: the identity provider sends no
-    such claim, and oauth2-proxy forwards only email, user and preferred_username
-    regardless. So ``pawe@asiap.demant.com`` becomes ``asiap\\pawe`` on the
-    assumption that the first domain label is the NetBIOS name and the UPN prefix
-    is the account name. That is usually true in an AD-backed tenant and fails
-    safe when it is not: a wrong guess matches nothing and the address is tried
-    next.
+    Next is the same form derived from the UPN's own domain label, which suits a
+    tenant whose UPN domain does match the directory. It fails safe when it does
+    not: a wrong guess matches nothing and the address is tried next.
 
-    Deliberately not derived from the email address. An address whose local part
-    happens to look like an account name would send an LDAP lookup after a name
-    nobody has claimed, and ``_resolve_identifier`` auto-provisions whatever LDAP
-    returns -- inventing an account from a guess.
+    The address comes after both, because it is not a key -- several accounts can
+    share one, and when they do there is nothing to choose between them.
+
+    Deliberately not derived from the email address alone. An address whose local
+    part happens to look like an account name would send an LDAP lookup after a
+    name nobody has claimed, and ``_resolve_identifier`` auto-provisions whatever
+    LDAP returns -- inventing an account from a guess.
     """
     candidates: list[str] = []
 
@@ -222,9 +224,14 @@ def _identifier_candidates(email: str, upn: str) -> list[str]:
         if value and value.lower() not in [c.lower() for c in candidates]:
             candidates.append(value)
 
+    sign_in_name = (upn or email).partition("@")[0]
+    for domain in ldap_domains:
+        if domain and sign_in_name:
+            add(f"{domain}\\{sign_in_name}")
+
     if "@" in upn:
-        local, _, domain = upn.partition("@")
-        first_label = domain.split(".", 1)[0]
+        local, _, domain_part = upn.partition("@")
+        first_label = domain_part.split(".", 1)[0]
         if local and first_label:
             add(f"{first_label}\\{local}")
 
@@ -286,7 +293,7 @@ def _try_trusted_header_login(
     # yields asiap\pawe. Without it an Entra login by someone who already has an
     # LDAP account creates a second, empty one alongside it.
     upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
-    candidates = _identifier_candidates(email, upn)
+    candidates = _identifier_candidates(email, upn, current_app.config.get("LDAP_DOMAINS", []))
 
     user: User | None = None
     error: str | None = None
@@ -520,7 +527,8 @@ def whoami() -> Response:
 
     lines.append("Identifiers tried, in order:")
     matched = None
-    for n, identifier in enumerate(_identifier_candidates(email, upn), start=1):
+    domains = current_app.config.get("LDAP_DOMAINS", [])
+    for n, identifier in enumerate(_identifier_candidates(email, upn, domains), start=1):
         if matched is not None:
             lines.append(f"  {n}. {identifier}  (not reached)")
             continue
