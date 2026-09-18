@@ -285,10 +285,18 @@ def _try_trusted_header_login(
 
     user: User | None = None
     error: str | None = None
+    matched: str | None = None
     for identifier in candidates:
         user, error = _resolve_identifier(identifier)
         if user is not None:
+            matched = identifier
             break
+
+    logger.info(
+        f"Trusted header login: email={email!r} upn={upn!r} "
+        f"candidates={candidates!r} matched={matched!r} "
+        f"user={user.username if user else None!r}"
+    )
 
     if user is None:
         # Only provision when the person genuinely has no account. Reaching here
@@ -345,7 +353,11 @@ def _try_trusted_header_login(
     else:
         verify_url = url_for("auth.verify", token=magic_token, _external=True)
 
-    _audit_log("entra_login", user.username, f"Trusted header login ({email}, app={app_name})")
+    _audit_log(
+        "entra_login",
+        user.username,
+        f"email={email} upn={upn or '-'} matched_on={matched or '-'} app={app_name or '-'}",
+    )
     return redirect(verify_url)
 
 
