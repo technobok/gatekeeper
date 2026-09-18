@@ -335,6 +335,13 @@ from the email address, because an address whose local part resembles an account
 name would send an LDAP lookup after a name nobody claimed, and LDAP results are
 auto-provisioned.
 
+Where the UPN's domain differs from the AD domain — a tenant whose users sign in
+as `someone@company.com` while the directory knows them as `CORP\someone` — step
+1 derives a name nobody has and the address is the only usable identifier. Then
+**email addresses must be unique per account**, or the login cannot proceed: two
+accounts sharing one leaves nothing to choose between. `/auth/whoami` reports
+this as `AMBIGUOUS` and names the count.
+
 Only an address in use by **no** account is provisioned. If it is already in use
 the lookup was ambiguous rather than empty, and provisioning would add yet another
 account with the same address while handing the user an empty one carrying none
