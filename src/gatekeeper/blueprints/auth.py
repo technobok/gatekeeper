@@ -249,7 +249,14 @@ def _try_trusted_header_login(
             break
 
     if user is None:
-        fullname = request.headers.get(str(_live_setting("auth.trusted_header_name")), "").strip()
+        # Default is empty: oauth2-proxy sets X-Auth-Request-User from the token's
+        # `sub`, which in Entra is an opaque pairwise identifier, not a name. Using
+        # it would stamp provisioned accounts with something like
+        # "AAAAAAAAAAAAAAAAAAAAAJ3n...". The `name` claim is never forwarded, so
+        # there is usually no display name to be had; fullname then falls back to
+        # the username. Accounts resolved through LDAP get a real name anyway.
+        name_header = str(_live_setting("auth.trusted_header_name"))
+        fullname = request.headers.get(name_header, "").strip() if name_header else ""
         user = _provision_entra_user(email, fullname)
 
     if user is None:

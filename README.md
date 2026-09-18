@@ -336,7 +336,7 @@ Both a successful login and any provisioning are written to the audit log
 |---------|---------|-------------|
 | `auth.trusted_header_enabled` | `false` | Master switch |
 | `auth.trusted_header_email` | `X-Auth-Request-Email` | Header carrying the email |
-| `auth.trusted_header_name` | `X-Auth-Request-User` | Header carrying the display name |
+| `auth.trusted_header_name` | *(empty)* | Header carrying a display name, if the proxy supplies one |
 | `auth.trusted_header_username` | `X-Auth-Request-Preferred-Username` | Header carrying the UPN, tried if the email matches nothing |
 
 Toggle it from *Admin → System → External Authentication (Entra)*, or with

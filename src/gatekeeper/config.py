@@ -72,8 +72,8 @@ REGISTRY: list[ConfigEntry] = [
     ConfigEntry(
         "auth.trusted_header_name",
         ConfigType.STRING,
-        "X-Auth-Request-User",
-        "Request header carrying the authenticated user's display name",
+        "",
+        "Request header carrying a display name; empty if the proxy supplies none",
     ),
     ConfigEntry(
         "auth.trusted_header_username",
