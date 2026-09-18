@@ -279,6 +279,26 @@ def _try_trusted_header_login(
             break
 
     if user is None:
+        # Only provision when the person genuinely has no account. Reaching here
+        # with the address already in use means the lookup was ambiguous, not
+        # empty -- _resolve_identifier refuses to choose between accounts sharing
+        # an address, and rightly so. Provisioning in that situation adds yet
+        # another account with the same address, compounding the very problem
+        # that blocked the match, and hands the user an empty account with none
+        # of their groups.
+        if User.get_by_email(email):
+            logger.warning(
+                f"Trusted header login for {email} matched no account, but the address "
+                f"is already in use by {len(User.get_by_email(email))} accounts; refusing "
+                f"to provision. Consolidate them, or sign in with a username."
+            )
+            flash(
+                "Your email address matches more than one account. "
+                "Please sign in with your username below.",
+                "error",
+            )
+            return None
+
         # Default is empty: oauth2-proxy sets X-Auth-Request-User from the token's
         # `sub`, which in Entra is an opaque pairwise identifier, not a name. Using
         # it would stamp provisioned accounts with something like
