@@ -320,10 +320,25 @@ derivation and no LDAP. The UPN is what the identity provider actually asserts,
 it is unique, and working out who someone is from an email address — for a person
 who has just authenticated — is work that should need doing once at most.
 
-It is populated two ways: LDAP sync reads `userPrincipalName`, so a bulk refresh
-backfills existing users; and a login that resolves by any other means records it
-on the account, so the slow path runs at most once per person. It is only ever
-filled in when empty, and the unique index refuses a UPN already held elsewhere.
+It is populated four ways:
+
+- **`gatekeeper-admin backfill-upns`** fills in accounts that have none. Supports
+  `--dry-run`, touches only the UPN so it will not resync groups, and names the
+  accounts LDAP has no UPN for. This is what to run against an existing database.
+- **Refresh from LDAP**, per user or for all LDAP users — both write it.
+- **A login** that resolves by any other means records it, so the slow path runs
+  at most once per person, and corrects it when the provider asserts a different
+  one.
+- **The admin user form**, where it can be edited or cleared by hand.
+
+The unique index refuses a UPN already held by another account. When that
+happens the operation reports it and carries on rather than failing, and clearing
+the UPN on the account holding it is the manual repair.
+
+Accounts with no `ldap_domain` — manually created and magic-link-only ones — are
+skipped by the refresh buttons and the backfill, since they have no directory
+entry to take a UPN from. They resolve by the fallback chain, which for them is
+correct. The admin system page reports how many accounts are in that position.
 
 The manual login form is unaffected and still reaches LDAP, which it must: people
 type a bare username there, and resolving that genuinely requires a directory
