@@ -383,7 +383,7 @@ somebody nothing about why an application thinks they are the wrong person.
 - [x] Reverse proxy support (ProxyFix configuration)
 - [x] Docker and docker-compose deployment
 - [x] Centralised SSO login (apps redirect to Gatekeeper for authentication)
-- [x] External login via trusted proxy headers (Entra / oauth2-proxy)
+- [x] Single sign-on against an OIDC provider
 
 ### Planned
 
