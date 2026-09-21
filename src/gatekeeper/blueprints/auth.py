@@ -685,6 +685,20 @@ def logout() -> Response:
     response = make_response(redirect(url_for("auth.login")))
     response.delete_cookie("gk_session")
 
+    # Say so, or single sign-on signs them straight back in and the button looks
+    # broken. Caddy sets this too, by matching logout-shaped paths, because the
+    # applications never tell us. Here we know for certain, so we do not depend
+    # on that guess holding -- or on the request having come through Caddy.
+    response.set_cookie(
+        SIGNED_OUT_COOKIE,
+        "1",
+        max_age=60,
+        path="/",
+        httponly=True,
+        samesite="Lax",
+        secure=request.is_secure,
+    )
+
     if hasattr(g, "user") and g.user:
         _audit_log("logout", g.user.username)
 

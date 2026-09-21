@@ -363,9 +363,10 @@ be offered a fallback, so an administrator needs a link they can send.
 
 `/auth/whoami` shows whoever is signed in which account the applications see —
 username, email, sign-in name, groups. Any authenticated user can reach it, and
-their username in the navigation links to it. `/` sends non-administrators there
-rather than refusing them, because a 403 tells somebody nothing about why an
-application thinks they are the wrong person.
+their username in the navigation links to it, and logging out is done from
+there. `/` sends non-administrators there rather than refusing them, because a
+403 tells somebody nothing about why an application thinks they are the wrong
+person.
 
 Administrative links are shown only to administrators. They always were the only
 ones who could follow them; until ordinary users could hold a session here, that
