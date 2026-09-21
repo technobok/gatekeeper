@@ -15,7 +15,7 @@ import logging
 from typing import Any
 
 from authlib.integrations.flask_client import OAuth
-from flask import Flask, request, session, url_for
+from flask import Flask, session, url_for
 
 logger = logging.getLogger(__name__)
 
@@ -54,30 +54,23 @@ def provider_name() -> str:
     return str(_setting("oidc.provider_name")).strip() or "single sign-on"
 
 
-def request_is_external() -> bool:
-    """Whether this request arrived from outside, by the configured header.
-
-    The header is configuration rather than an assumption: `X-MS-Proxy` is a
-    detail of one product, not a fact about the world.
-    """
-    header = str(_setting("sso.external_header")).strip()
-    return bool(header and request.headers.get(header))
-
-
 def should_attempt() -> bool:
     """Whether single sign-on applies to this request.
 
-    Answers only the policy question. Whether it then succeeds is a separate
-    matter, and failing is expected to be survivable.
+    On means on, for everyone. There is deliberately no internal/external split:
+    the external forwarder reaches us from a 10.* address like everything else,
+    so the two cannot be told apart reliably, and a switch that cannot be trusted
+    to mean what it says is worse than not having one.
+
+    Answers only the policy question. Whether the attempt then succeeds is a
+    separate matter, and failing is expected to be survivable.
     """
     if str(_setting("sso.mode")).strip().lower() != "oidc":
         return False
     if not is_configured():
         logger.warning("sso.mode is oidc but the client is not fully configured")
         return False
-    if request_is_external():
-        return bool(_setting("sso.external_enabled"))
-    return bool(_setting("sso.internal_enabled"))
+    return True
 
 
 def _client() -> Any:
@@ -192,7 +185,8 @@ def describe() -> dict[str, Any]:
         "secret_set": bool(str(_setting("oidc.client_secret")).strip()),
         "scopes": str(_setting("oidc.scopes")),
         "provider_name": provider_name(),
-        "internal_enabled": bool(_setting("sso.internal_enabled")),
-        "external_enabled": bool(_setting("sso.external_enabled")),
-        "external_header": str(_setting("sso.external_header")),
+        # Shown in full: this is an admin-only page and an administrator needs to
+        # be able to check the value against the provider, not just be told that
+        # something is set.
+        "client_secret": str(_setting("oidc.client_secret")),
     }

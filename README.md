@@ -317,27 +317,26 @@ chooses:
 Named for the protocol rather than a vendor: this is a shared service and a
 deployment might point it at any provider.
 
-**There is no button.** If single sign-on applies, it is attempted. If it is off,
-or it fails for a particular person, they get the email and magic-link form
-instead — nobody is left without a way in.
+**On means on, for everyone.** There is deliberately no internal/external split —
+telling them apart is not reliably possible, since the external forwarder arrives
+from a private address like everything else, and a switch that cannot be trusted
+to mean what it says is worse than not having one.
+
+**There is no button.** If single sign-on is on it is attempted; if it is off, or
+it fails for a particular person, they get the email and magic-link form instead.
+Nobody is left without a way in.
 
 Configure it at *Admin → SSO*, which also shows the redirect URI to register with
-the provider. Settings:
+the provider:
 
 | Setting | Default | Purpose |
 |---|---|---|
 | `sso.mode` | `off` | `off`, `proxy_header`, or `oidc` |
-| `sso.internal_enabled` | `false` | Attempt single sign-on for internal requests |
-| `sso.external_enabled` | `true` | Attempt it for external requests |
-| `sso.external_header` | `X-MS-Proxy` | A request carrying this is treated as external |
 | `oidc.issuer` | | Discovery base URL |
 | `oidc.client_id` | | |
-| `oidc.client_secret` | | Write-only in the interface |
+| `oidc.client_secret` | | Shown in full on the admin page; empty it and save to clear |
 | `oidc.scopes` | `openid email profile` | |
 | `oidc.provider_name` | `single sign-on` | Used in messages, not as a button |
-
-`sso.external_header` is configuration rather than an assumption: `X-MS-Proxy` is
-a detail of one product, not a fact about the world.
 
 **Why OIDC is preferable to trusting headers.** A header can be forged by
 anything able to reach this service directly, which on a shared Docker network is
@@ -353,7 +352,19 @@ which would otherwise be a loop with no way out.
 the interface: someone the provider will not authenticate never returns to us to
 be offered a fallback, so an administrator needs a link they can send.
 
-### External login via trusted headers (Entra)
+### Seeing your own account
+
+`/auth/whoami` shows whoever is signed in which account the applications see —
+username, email, sign-in name, groups. Any authenticated user can reach it, and
+`/` sends non-administrators there rather than refusing them, because a 403 tells
+somebody nothing about why an application thinks they are the wrong person.
+
+Administrators also have `/auth/whoami/resolution`, which reports the identity
+headers a request carried and which account they would match. It is only
+meaningful under `proxy_header`; with OIDC there are no headers, because nothing
+is trusted.
+
+### External login via trusted headers (Entra)### External login via trusted headers (Entra)
 
 External users reach the platform through Microsoft Entra Application Proxy, which
 authenticates them before their request arrives. Rather than asking them for a

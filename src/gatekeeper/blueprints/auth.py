@@ -654,56 +654,79 @@ def sso_callback() -> Response:
 
 
 @bp.route("/whoami")
-def whoami() -> Response:
-    """Diagnostic: what the proxy sent, and how Gatekeeper resolves it.
+def whoami() -> str | Response:
+    """Show people who they are signed in as.
 
-    Read-only on purpose. The live login path lets ``_resolve_identifier`` fall
-    back to LDAP, which auto-provisions whatever it finds; doing that here would
-    mean a diagnostic page could create accounts. So this reports only what is
-    already in the database, and says so.
+    Ordinary users land here rather than on the admin dashboard, which they
+    cannot see. It answers the questions someone actually asks when an
+    application behaves as though they are the wrong person: which account, which
+    email, which groups.
+
+    Read-only throughout. The live login path lets ``_resolve_identifier`` fall
+    back to LDAP, which auto-provisions whatever it finds, and a page anyone can
+    open should not be able to create accounts.
     """
+    user = g.get("user")
+    if user is None:
+        return redirect(url_for("auth.login", next=request.url))
+
+    return render_template(
+        "auth/whoami.html",
+        account=user,
+        groups=Group.get_groups_for_user(user.username),
+        is_admin=Group.user_in_group(user.username, "admin"),
+    )
+
+
+@bp.route("/whoami/resolution")
+def whoami_resolution() -> Response:
+    """How a proxy-authenticated request would resolve. Diagnostic, admin-only.
+
+    Only useful while ``sso.mode`` is ``proxy_header``: it reports the identity
+    headers a request carried and which account they would match. Under OIDC
+    there are no headers, because nothing is trusted.
+
+    Checked here rather than with the decorator, which is defined further down
+    this module and so is not available to a route above it.
+    """
+    user = g.get("user")
+    if user is None or not Group.user_in_group(user.username, "admin"):
+        abort(403)
+
     email_header = str(_live_setting("auth.trusted_header_email"))
     upn_header = str(_live_setting("auth.trusted_header_username"))
     email = request.headers.get(email_header, "").strip()
     upn = request.headers.get(upn_header, "").strip()
 
     lines = [
-        "Trusted header authentication",
-        f"  enabled          {bool(_live_setting('auth.trusted_header_enabled'))}",
-        f"  {email_header}  {email or '(not sent)'}",
-        f"  {upn_header}  {upn or '(not sent)'}",
+        f"sso.mode          {_live_setting('sso.mode')}",
+        f"{email_header}  {email or '(not sent)'}",
+        f"{upn_header}  {upn or '(not sent)'}",
         "",
     ]
 
-    if not email:
+    if not email and not upn:
         lines += [
             "No identity headers arrived.",
             "",
-            "Internally that is expected: they are only added for requests that go",
-            "through the external authentication path.",
+            "Under OIDC that is expected -- Gatekeeper authenticates against the",
+            "provider itself and trusts no headers at all.",
         ]
         return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
     stamped = User.get_by_upn(upn)
     if stamped is not None:
         lines += [
-            f"Matched directly on UPN: {stamped.username}",
+            f"Matches directly on UPN: {stamped.username}",
             "  One indexed lookup. No derivation, no LDAP.",
-            "",
-        ]
-        groups = ", ".join(Group.get_groups_for_user(stamped.username)) or "(none)"
-        lines += [
-            f"  full name  {stamped.fullname or '(none)'}",
-            f"  email      {stamped.email}",
-            f"  enabled    {stamped.enabled}",
-            f"  groups     {groups}",
         ]
         return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
     lines.append("No account carries this UPN yet, so it falls back to matching.")
-    lines.append("A successful match records the UPN, and later logins skip this.")
+    lines.append("A successful login records the UPN, and later ones skip this.")
     lines.append("")
     lines.append("Identifiers tried, in order:")
+
     matched = None
     domains = current_app.config.get("LDAP_DOMAINS", [])
     for n, identifier in enumerate(_identifier_candidates(email, upn, domains), start=1):
@@ -727,16 +750,13 @@ def whoami() -> Response:
     if matched is None:
         lines += [
             "No local account matched.",
-            "A real login would next try LDAP, and provision an account only if the",
-            "email address is not already in use.",
+            "A real login would next try LDAP, and provision an account only if",
+            "the email address is not already in use.",
         ]
     else:
         groups = ", ".join(Group.get_groups_for_user(matched.username)) or "(none)"
         lines += [
             f"Resolves to: {matched.username}",
-            f"  full name  {matched.fullname or '(none)'}",
-            f"  email      {matched.email}",
-            f"  enabled    {matched.enabled}",
             f"  groups     {groups}",
         ]
 
@@ -759,15 +779,16 @@ def verify() -> Response:
 
     user, redirect_url = result
 
-    # Re-check admin membership (user may have been removed since link was sent)
-    if not Group.user_in_group(user.username, "admin"):
-        flash("Access is restricted to administrators.", "error")
-        _audit_log("login_rejected", user.username, "Non-admin at verification")
-        return redirect(url_for("auth.login"))
+    # Anyone may hold a session here; what it grants is another matter. Every
+    # administrative page carries its own check, so a session without admin
+    # membership reaches only /auth/whoami -- which is the point, since someone
+    # asking "who does this think I am" should not have to be an administrator
+    # to find out.
+    is_admin = Group.user_in_group(user.username, "admin")
 
     # Create auth token and set cookie
     auth_token = token_service.create_auth_token(user)
-    response = make_response(redirect(redirect_url))
+    response = make_response(redirect(redirect_url or url_for("auth.whoami")))
     response.set_cookie(
         "gk_session",
         auth_token,
@@ -777,7 +798,7 @@ def verify() -> Response:
         max_age=86400,
     )
 
-    _audit_log("login", user.username, "Magic link verified")
+    _audit_log("login", user.username, f"Magic link verified (admin={is_admin})")
 
     return response
 

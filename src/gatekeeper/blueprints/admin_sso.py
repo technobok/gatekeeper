@@ -22,11 +22,10 @@ bp = Blueprint("admin_sso", __name__, url_prefix="/admin/sso")
 _TEXT_SETTINGS = (
     "oidc.issuer",
     "oidc.client_id",
+    "oidc.client_secret",
     "oidc.scopes",
     "oidc.provider_name",
-    "sso.external_header",
 )
-_BOOL_SETTINGS = ("sso.internal_enabled", "sso.external_enabled")
 _MODES = ("off", "proxy_header", "oidc")
 
 
@@ -79,22 +78,16 @@ def save() -> Response:
         flash(f"Unknown mode '{mode}'.", "error")
         return redirect(url_for("admin_sso.index"))
 
+    previous_secret = AppSetting.get("oidc.client_secret") or ""
+
     AppSetting.set("sso.mode", mode)
     for key in _TEXT_SETTINGS:
         AppSetting.set(key, request.form.get(key, "").strip())
-    for key in _BOOL_SETTINGS:
-        AppSetting.set(key, "true" if request.form.get(key) == "on" else "false")
 
-    # Write-only. An empty box means "leave it alone", not "clear it" -- the
-    # field is never populated on render, so treating blank as a deletion would
-    # wipe the secret every time anyone saved the page. Clearing is explicit.
-    secret = request.form.get("oidc.client_secret", "")
-    if request.form.get("clear_secret") == "on":
-        AppSetting.set("oidc.client_secret", "")
-        _audit_log("sso_secret_cleared")
-    elif secret.strip():
-        AppSetting.set("oidc.client_secret", secret.strip())
-        _audit_log("sso_secret_set")
+    # The secret is shown in the form, so what comes back is the whole truth --
+    # emptying the box clears it, and there is no separate gesture to learn.
+    if (request.form.get("oidc.client_secret", "").strip()) != previous_secret:
+        _audit_log("sso_secret_changed")
 
     _audit_log("sso_settings_saved", details=f"mode={mode}")
     flash("Single sign-on settings saved.", "success")

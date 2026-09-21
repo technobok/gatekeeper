@@ -81,29 +81,16 @@ REGISTRY: list[ConfigEntry] = [
     # deployment might point it at any provider. The proxy-header path is not
     # OIDC, so `sso.mode` names the concept and the `oidc.*` entries name the
     # protocol.
+    #
+    # There is no internal/external split. Telling them apart is not reliably
+    # possible here -- the external forwarder arrives from a 10.* address like
+    # everything else -- and a switch that cannot be trusted to mean what it says
+    # is worse than no switch. On means on, for everyone.
     ConfigEntry(
         "sso.mode",
         ConfigType.STRING,
         "off",
         "Single sign-on mode: off, proxy_header, or oidc",
-    ),
-    ConfigEntry(
-        "sso.internal_enabled",
-        ConfigType.BOOL,
-        False,
-        "Attempt single sign-on for internal requests",
-    ),
-    ConfigEntry(
-        "sso.external_enabled",
-        ConfigType.BOOL,
-        True,
-        "Attempt single sign-on for external requests",
-    ),
-    ConfigEntry(
-        "sso.external_header",
-        ConfigType.STRING,
-        "X-MS-Proxy",
-        "Header whose presence marks a request as external",
     ),
     # -- oidc --
     ConfigEntry(

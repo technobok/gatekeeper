@@ -5,9 +5,9 @@
 <h1>Single Sign-On</h1>
 
 <p>
-    When single sign-on applies, it is attempted automatically. If it is off, or
-    it fails for a particular person, they get the email and magic-link form
-    instead — nobody is ever left without a way in.
+    When single sign-on is on it is attempted for everyone, automatically. If it
+    is off, or it fails for a particular person, they get the email and
+    magic-link form instead — nobody is ever left without a way in.
 </p>
 
 <form method="post" action="{{ url_for('admin_sso.save') }}">
@@ -23,31 +23,6 @@
             <code>off</code> — everyone uses magic links.
             <code>proxy_header</code> — trust identity headers from a reverse proxy.
             <code>oidc</code> — authenticate against the provider directly.
-        </small>
-    </label>
-
-    <fieldset>
-        <legend>Who it applies to</legend>
-        <label for="sso.external_enabled">
-            <input type="checkbox" id="sso.external_enabled" name="sso.external_enabled"
-                   {{ 'checked' if state.external_enabled else '' }}>
-            External requests
-        </label>
-        <label for="sso.internal_enabled">
-            <input type="checkbox" id="sso.internal_enabled" name="sso.internal_enabled"
-                   {{ 'checked' if state.internal_enabled else '' }}>
-            Internal requests
-        </label>
-    </fieldset>
-
-    <label for="sso.external_header">
-        External request header
-        <input type="text" id="sso.external_header" name="sso.external_header"
-               value="{{ state.external_header }}">
-        <small>
-            A request carrying this header is treated as external. Configurable
-            because it depends on what sits in front of us, not on anything
-            universal.
         </small>
     </label>
 
@@ -68,14 +43,9 @@
 
     <label for="oidc.client_secret">
         Client secret
-        <input type="password" id="oidc.client_secret" name="oidc.client_secret"
-               placeholder="{{ 'set — leave blank to keep' if state.secret_set else 'not set' }}">
-        <small>
-            Never displayed. Leaving this blank keeps the current value.
-            <label for="clear_secret">
-                <input type="checkbox" id="clear_secret" name="clear_secret"> Clear it instead
-            </label>
-        </small>
+        <input type="text" id="oidc.client_secret" name="oidc.client_secret"
+               value="{{ state.client_secret }}">
+        <small>Empty this box and save to remove it.</small>
     </label>
 
     <label for="oidc.scopes">

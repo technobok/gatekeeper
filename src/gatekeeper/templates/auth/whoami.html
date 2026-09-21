@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Your account - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Your account</h1>
+
+<p>
+    This is who the applications see when you use them. If one is behaving as
+    though you are somebody else, this is the page to check first.
+</p>
+
+<table>
+    <tbody>
+        <tr>
+            <th scope="row">Username</th>
+            <td><code>{{ account.username }}</code></td>
+        </tr>
+        <tr>
+            <th scope="row">Full name</th>
+            <td>{{ account.fullname or '—' }}</td>
+        </tr>
+        <tr>
+            <th scope="row">Email</th>
+            <td>{{ account.email }}</td>
+        </tr>
+        <tr>
+            <th scope="row">Sign-in name</th>
+            <td>
+                {% if account.upn %}<code>{{ account.upn }}</code>
+                {% else %}<small>Not recorded — you have not signed in through single sign-on.</small>
+                {% endif %}
+            </td>
+        </tr>
+        {% if account.ldap_domain %}
+        <tr>
+            <th scope="row">Directory</th>
+            <td>{{ account.ldap_domain }}</td>
+        </tr>
+        {% endif %}
+        <tr>
+            <th scope="row">Groups</th>
+            <td>
+                {% if groups %}{{ groups | join(', ') }}
+                {% else %}<small>None. That is usually why an application will not let you in.</small>
+                {% endif %}
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<p>
+    <small>
+        Something wrong here? Send this page to whoever administers Gatekeeper —
+        it tells them everything they need to put it right.
+    </small>
+</p>
+
+{% if is_admin %}
+<p><a href="{{ url_for('admin_system.index') }}" role="button" class="secondary">Administration</a></p>
+{% endif %}
+{% endblock %}
