@@ -75,6 +75,57 @@ REGISTRY: list[ConfigEntry] = [
         "",
         "Request header carrying a display name; empty if the proxy supplies none",
     ),
+    # -- single sign-on --
+    #
+    # Named for the concept, not the vendor: Gatekeeper is a shared service and a
+    # deployment might point it at any provider. The proxy-header path is not
+    # OIDC, so `sso.mode` names the concept and the `oidc.*` entries name the
+    # protocol.
+    ConfigEntry(
+        "sso.mode",
+        ConfigType.STRING,
+        "off",
+        "Single sign-on mode: off, proxy_header, or oidc",
+    ),
+    ConfigEntry(
+        "sso.internal_enabled",
+        ConfigType.BOOL,
+        False,
+        "Attempt single sign-on for internal requests",
+    ),
+    ConfigEntry(
+        "sso.external_enabled",
+        ConfigType.BOOL,
+        True,
+        "Attempt single sign-on for external requests",
+    ),
+    ConfigEntry(
+        "sso.external_header",
+        ConfigType.STRING,
+        "X-MS-Proxy",
+        "Header whose presence marks a request as external",
+    ),
+    # -- oidc --
+    ConfigEntry(
+        "oidc.issuer",
+        ConfigType.STRING,
+        "",
+        "OIDC issuer URL, used for discovery",
+    ),
+    ConfigEntry("oidc.client_id", ConfigType.STRING, "", "OIDC client ID"),
+    ConfigEntry("oidc.client_secret", ConfigType.STRING, "", "OIDC client secret", secret=True),
+    ConfigEntry(
+        "oidc.scopes",
+        ConfigType.STRING,
+        "openid email profile",
+        "Space-separated scopes to request",
+    ),
+    ConfigEntry(
+        "oidc.provider_name",
+        ConfigType.STRING,
+        "single sign-on",
+        "Provider name, used in messages shown to users",
+    ),
     ConfigEntry(
         "auth.trusted_header_username",
         ConfigType.STRING,

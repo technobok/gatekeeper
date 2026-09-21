@@ -302,6 +302,57 @@ When `callback_url` is not provided, the login page behaves as before (Gatekeepe
 
 Applications that use centralised SSO: [Cadence](../cadence/), [Folio](../folio/), [Outbox](../outbox/), [SharePoint Mirror](../sharepoint-mirror/), and [Webreports](../webreports/).
 
+### Single sign-on
+
+Gatekeeper can authenticate people against an OIDC provider itself, or trust
+identity headers from a reverse proxy that has already done so. `sso.mode`
+chooses:
+
+| Mode | Meaning |
+|---|---|
+| `off` | Everyone uses the magic-link form |
+| `proxy_header` | Trust `X-Auth-Request-*` from a reverse proxy |
+| `oidc` | Authenticate against the provider directly |
+
+Named for the protocol rather than a vendor: this is a shared service and a
+deployment might point it at any provider.
+
+**There is no button.** If single sign-on applies, it is attempted. If it is off,
+or it fails for a particular person, they get the email and magic-link form
+instead — nobody is left without a way in.
+
+Configure it at *Admin → SSO*, which also shows the redirect URI to register with
+the provider. Settings:
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `sso.mode` | `off` | `off`, `proxy_header`, or `oidc` |
+| `sso.internal_enabled` | `false` | Attempt single sign-on for internal requests |
+| `sso.external_enabled` | `true` | Attempt it for external requests |
+| `sso.external_header` | `X-MS-Proxy` | A request carrying this is treated as external |
+| `oidc.issuer` | | Discovery base URL |
+| `oidc.client_id` | | |
+| `oidc.client_secret` | | Write-only in the interface |
+| `oidc.scopes` | `openid email profile` | |
+| `oidc.provider_name` | `single sign-on` | Used in messages, not as a button |
+
+`sso.external_header` is configuration rather than an assumption: `X-MS-Proxy` is
+a detail of one product, not a fact about the world.
+
+**Why OIDC is preferable to trusting headers.** A header can be forged by
+anything able to reach this service directly, which on a shared Docker network is
+every other container. OIDC removes the attack rather than mitigating it: there
+is nothing to forge, because nothing is trusted. The proxy-header path remains
+only until the OIDC one is proven in place.
+
+**If a sign-in fails**, the person lands on the form with an explanation, and a
+one-shot marker stops the login page sending them straight back to the provider —
+which would otherwise be a loop with no way out.
+
+**`?sso=off`** on the login URL skips the attempt. It is deliberately absent from
+the interface: someone the provider will not authenticate never returns to us to
+be offered a fallback, so an administrator needs a link they can send.
+
 ### External login via trusted headers (Entra)
 
 External users reach the platform through Microsoft Entra Application Proxy, which

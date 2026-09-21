@@ -33,6 +33,13 @@ bp = Blueprint("auth", __name__, url_prefix="/auth")
 # back in, making the logout button appear to do nothing.
 SIGNED_OUT_COOKIE = "entra_signedout"
 
+# Set when a single sign-on attempt fails, and honoured exactly once.
+#
+# Without it the login page is a trap: it redirects to the provider, the attempt
+# fails, the user is returned here, and it redirects again. A one-shot marker
+# turns an unbreakable loop into a form with an explanation on it.
+SSO_FAILED_COOKIE = "sso_failed"
+
 
 def _resolve_identifier(identifier: str) -> tuple[User | None, str | None]:
     """Resolve a login identifier to a user.
@@ -265,16 +272,109 @@ def _provision_entra_user(email: str, fullname: str) -> User | None:
     return user
 
 
+def _resolve_sso_user(email: str, upn: str, fullname: str = "") -> tuple[User | None, str | None]:
+    """Resolve a user an identity provider has already authenticated.
+
+    Shared by both single sign-on paths so they cannot drift apart: whichever way
+    the claims arrived, the same rules decide which account they belong to.
+
+    Returns (user, matched_on). A None user means no account could be resolved
+    safely, and the caller should fall back to the form.
+    """
+    # Fast path. The UPN is what the provider actually asserts, and it is unique
+    # and indexed, so a stamped account resolves in a single lookup -- no
+    # derivation, no LDAP. Working out who someone is from an email address, for
+    # a person just authenticated, is work that should need doing once at most.
+    user = User.get_by_upn(upn)
+    if user is not None:
+        return user, f"upn:{upn}"
+
+    # Slow path, for accounts not yet stamped. This is also the only path that
+    # can reach LDAP.
+    matched: str | None = None
+    candidates = _identifier_candidates(email, upn, current_app.config.get("LDAP_DOMAINS", []))
+    for identifier in candidates:
+        user, _error = _resolve_identifier(identifier)
+        if user is not None:
+            matched = identifier
+            break
+
+    if user is not None:
+        _stamp_upn(user, upn)
+    elif email:
+        # Only provision when the person genuinely has no account. Reaching here
+        # with the address already in use means the lookup was ambiguous, not
+        # empty -- _resolve_identifier refuses to choose between accounts sharing
+        # an address, and rightly so. Provisioning then adds yet another account
+        # with the same address, compounding the problem that blocked the match,
+        # and hands the user an empty account carrying none of their groups.
+        sharing = User.get_by_email(email)
+        if sharing:
+            logger.warning(
+                f"Single sign-on for {email} matched no account, but the address is "
+                f"already in use by {len(sharing)} accounts; refusing to provision. "
+                f"Consolidate them, or sign in with a username."
+            )
+            flash(
+                "Your email address matches more than one account. "
+                "Please sign in with your username below.",
+                "error",
+            )
+            return None, None
+
+        user = _provision_entra_user(email, fullname)
+        if user is not None:
+            matched = "provisioned"
+            _stamp_upn(user, upn)
+
+    logger.info(
+        f"Single sign-on resolution: email={email!r} upn={upn!r} "
+        f"candidates={candidates!r} matched={matched!r} "
+        f"user={user.username if user else None!r}"
+    )
+    return user, matched
+
+
+def _stamp_upn(user: User, upn: str) -> None:
+    """Record the UPN, and correct it when the provider now asserts another.
+
+    Writing over an existing value is deliberate. Without it a UPN changed at the
+    provider is never picked up: resolution falls back to the chain, matches the
+    account, and then declines to fix the record -- while the stale value goes on
+    occupying the unique index. The account has already been resolved by other
+    means before we get here, and the ambiguity guard refuses to resolve an
+    address held by more than one account, so this can only move a UPN onto the
+    account it was already matched to.
+    """
+    if not upn or upn.lower() == (user.upn or "").lower():
+        return
+
+    previous = user.upn
+    try:
+        user.update(upn=upn)
+        if previous:
+            logger.info(f"Updated UPN for {user.username!r}: {previous!r} -> {upn!r}")
+            _audit_log("sso_upn_changed", user.username, f"{previous} -> {upn}")
+        else:
+            logger.info(f"Recorded UPN {upn!r} against {user.username!r}")
+    except Exception:
+        logger.warning(
+            f"Could not record UPN {upn!r} against {user.username!r}; "
+            f"it is probably already held by another account"
+        )
+
+
 def _try_trusted_header_login(
     next_url: str, app_name: str, sso_callback_url: str
 ) -> Response | None:
     """Complete a login from proxy-supplied identity headers, when present.
 
-    Caddy strips ``X-Auth-*`` from inbound requests, so the only way one of these
-    headers reaches us is for oauth2-proxy to have authenticated the user against
-    Entra. Returns a redirect carrying a magic-link token, or None to let the
-    caller fall back to the ordinary email form.
+    The older of the two single sign-on paths, kept until the OIDC one is proven.
+    It trusts a header, which means anything able to reach this service directly
+    can forge one -- which is exactly why it is going away.
     """
+    if str(_live_setting("sso.mode")).strip().lower() == "oidc":
+        return None
     if not _live_setting("auth.trusted_header_enabled"):
         return None
 
@@ -283,103 +383,38 @@ def _try_trusted_header_login(
         return None
 
     upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
+    name_header = str(_live_setting("auth.trusted_header_name"))
+    fullname = request.headers.get(name_header, "").strip() if name_header else ""
 
-    # Fast path. The UPN is what the identity provider actually asserts, and it
-    # is unique and indexed, so a stamped account resolves in a single lookup --
-    # no derivation, no LDAP. Working out who someone is from an email address,
-    # for a person the identity provider has just authenticated, is work that
-    # should need doing once at most.
-    user = User.get_by_upn(upn)
-    matched: str | None = f"upn:{upn}" if user else None
-    error: str | None = None
-    candidates: list[str] = []
-
+    user, matched = _resolve_sso_user(email, upn, fullname)
     if user is None:
-        # Slow path, for accounts not yet stamped. This is also the only path
-        # that can reach LDAP.
-        candidates = _identifier_candidates(email, upn, current_app.config.get("LDAP_DOMAINS", []))
-        for identifier in candidates:
-            user, error = _resolve_identifier(identifier)
-            if user is not None:
-                matched = identifier
-                break
-
-        # Record the UPN so this account takes the fast path from now on, and
-        # correct it when the identity provider now asserts a different one.
-        #
-        # Writing over an existing value is deliberate. Without it a UPN changed
-        # at the provider is never picked up: resolution falls back to the chain,
-        # matches the account, and then declines to fix the record -- while the
-        # stale value goes on occupying the unique index. The account has already
-        # been resolved by other means before we get here, and the ambiguity
-        # guard refuses to resolve an address held by more than one account, so
-        # this can only move a UPN onto the account it was already matched to.
-        if user is not None and upn and upn.lower() != (user.upn or "").lower():
-            previous = user.upn
-            try:
-                user.update(upn=upn)
-                if previous:
-                    logger.info(f"Updated UPN for {user.username!r}: {previous!r} -> {upn!r}")
-                    _audit_log("entra_upn_changed", user.username, f"{previous} -> {upn}")
-                else:
-                    logger.info(f"Recorded UPN {upn!r} against {user.username!r}")
-            except Exception:
-                logger.warning(
-                    f"Could not record UPN {upn!r} against {user.username!r}; "
-                    f"it is probably already held by another account"
-                )
-
-    logger.info(
-        f"Trusted header login: email={email!r} upn={upn!r} "
-        f"candidates={candidates!r} matched={matched!r} "
-        f"user={user.username if user else None!r}"
-    )
-
-    if user is None:
-        # Only provision when the person genuinely has no account. Reaching here
-        # with the address already in use means the lookup was ambiguous, not
-        # empty -- _resolve_identifier refuses to choose between accounts sharing
-        # an address, and rightly so. Provisioning in that situation adds yet
-        # another account with the same address, compounding the very problem
-        # that blocked the match, and hands the user an empty account with none
-        # of their groups.
-        if User.get_by_email(email):
-            logger.warning(
-                f"Trusted header login for {email} matched no account, but the address "
-                f"is already in use by {len(User.get_by_email(email))} accounts; refusing "
-                f"to provision. Consolidate them, or sign in with a username."
-            )
-            flash(
-                "Your email address matches more than one account. "
-                "Please sign in with your username below.",
-                "error",
-            )
-            return None
-
-        # Default is empty: oauth2-proxy sets X-Auth-Request-User from the token's
-        # `sub`, which in Entra is an opaque pairwise identifier, not a name. Using
-        # it would stamp provisioned accounts with something like
-        # "AAAAAAAAAAAAAAAAAAAAAJ3n...". The `name` claim is never forwarded, so
-        # there is usually no display name to be had; fullname then falls back to
-        # the username. Accounts resolved through LDAP get a real name anyway.
-        name_header = str(_live_setting("auth.trusted_header_name"))
-        fullname = request.headers.get(name_header, "").strip() if name_header else ""
-        user = _provision_entra_user(email, fullname)
-
-    if user is None:
-        logger.warning(f"Trusted header login failed for {email}: {error}")
-        flash("Could not sign you in automatically. Please use your email below.", "error")
         return None
 
+    return _issue_sso_redirect(
+        user, matched, next_url, app_name, sso_callback_url, source="entra_login"
+    )
+
+
+def _issue_sso_redirect(
+    user: User,
+    matched: str | None,
+    next_url: str,
+    app_name: str,
+    sso_callback_url: str,
+    source: str,
+) -> Response | None:
+    """Mint a magic-link token and hand the user to the calling application.
+
+    Shared by both paths. From here the journey is the one the email form already
+    takes, which is what keeps all eleven applications out of this entirely --
+    they receive an ordinary magic-link callback and cannot tell the difference.
+    """
     # Logging in to Gatekeeper itself stays admin-only, exactly as the form does.
     if not sso_callback_url and not Group.user_in_group(user.username, "admin"):
-        _audit_log("login_rejected", user.username, "Non-admin Entra login attempt")
+        _audit_log("login_rejected", user.username, "Non-admin single sign-on attempt")
         flash("Access is restricted to administrators.", "error")
         return None
 
-    # An empty redirect is deliberate in SSO mode: the calling app substitutes
-    # its own landing page. Gatekeeper's own login has no such fallback, so it
-    # keeps the index.
     magic_token = token_service.create_magic_link_token(
         user.username,
         redirect_url=next_url or ("" if sso_callback_url else url_for("index")),
@@ -391,9 +426,9 @@ def _try_trusted_header_login(
         verify_url = url_for("auth.verify", token=magic_token, _external=True)
 
     _audit_log(
-        "entra_login",
+        source,
         user.username,
-        f"email={email} upn={upn or '-'} matched_on={matched or '-'} app={app_name or '-'}",
+        f"upn={user.upn or '-'} matched_on={matched or '-'} app={app_name or '-'}",
     )
     return redirect(verify_url)
 
@@ -429,8 +464,14 @@ def login() -> str | Response:
         # futile under SSO: the app clears its session, lands here, and the
         # identity headers sign the user straight back in without their asking.
         just_signed_out = bool(request.cookies.get(SIGNED_OUT_COOKIE))
+        sso_failed = bool(request.cookies.get(SSO_FAILED_COOKIE))
 
-        if not just_signed_out:
+        # An administrator's escape hatch, deliberately absent from the
+        # interface. Someone the provider will not authenticate never comes back
+        # to us to be offered a fallback, so the link has to be sendable.
+        sso_declined = request.args.get("sso", "").lower() in ("off", "0", "no")
+
+        if not (just_signed_out or sso_failed or sso_declined):
             # Pass the raw value, not the index fallback: with a callback_url the
             # destination belongs to the calling app, and an empty redirect leaves
             # the app to choose its own landing page. Sending someone to
@@ -441,6 +482,10 @@ def login() -> str | Response:
             )
             if entra_redirect is not None:
                 return entra_redirect
+
+            to_provider = _try_oidc_login(app_name, sso_callback_url)
+            if to_provider is not None:
+                return to_provider
 
         if just_signed_out:
             flash("You have been signed out.", "success")
@@ -455,6 +500,8 @@ def login() -> str | Response:
         )
         if just_signed_out:
             response.delete_cookie(SIGNED_OUT_COOKIE, path="/")
+        if sso_failed:
+            response.delete_cookie(SSO_FAILED_COOKIE, path="/")
         return response
 
     identifier = request.form.get("identifier", "").strip()
@@ -517,6 +564,93 @@ def login() -> str | Response:
         app_name=app_name,
         callback_url=sso_callback_url,
     )
+
+
+def _try_oidc_login(app_name: str, sso_callback_url: str) -> Response | None:
+    """Start an OIDC login, if single sign-on applies to this request.
+
+    Returns a redirect to the provider, or None to let the caller fall back to
+    the form. Nothing here is fatal: a provider that cannot be reached must leave
+    people able to log in by email, not locked out.
+    """
+    from gatekeeper.services import oidc_service
+
+    if not oidc_service.should_attempt():
+        return None
+
+    try:
+        return oidc_service.begin(
+            {
+                "app_name": app_name,
+                "callback_url": sso_callback_url,
+                "next": request.args.get("next", ""),
+            }
+        )
+    except Exception as exc:
+        logger.warning(f"Could not start an OIDC login: {exc}")
+        return None
+
+
+def _sso_failed(message: str, return_params: dict[str, str]) -> Response:
+    """Send the user to the form, and stop trying until they act.
+
+    The marker is what stops the login page bouncing them back to the provider
+    the moment they arrive, which would be a loop with no way out.
+    """
+    flash(message, "error")
+    target = url_for(
+        "auth.login",
+        app_name=return_params.get("app_name") or None,
+        callback_url=return_params.get("callback_url") or None,
+        next=return_params.get("next") or None,
+    )
+    response = redirect(target)
+    response.set_cookie(
+        SSO_FAILED_COOKIE,
+        "1",
+        max_age=120,
+        httponly=True,
+        samesite="Lax",
+        secure=request.is_secure,
+    )
+    return response
+
+
+@bp.route("/sso/callback")
+def sso_callback() -> Response:
+    """Where the identity provider returns the user."""
+    from gatekeeper.services import oidc_service
+
+    claims, return_params = oidc_service.complete()
+    if claims is None:
+        return _sso_failed(
+            f"Could not complete sign-in with {oidc_service.provider_name()}.", return_params
+        )
+
+    email = oidc_service.claim_email(claims)
+    upn = oidc_service.claim_upn(claims)
+    if not email and not upn:
+        logger.warning("OIDC login carried neither an address nor a sign-in name")
+        return _sso_failed("The sign-in did not include an email address.", return_params)
+
+    user, matched = _resolve_sso_user(email, upn, oidc_service.claim_fullname(claims))
+    if user is None:
+        return _sso_failed(
+            f"Your {oidc_service.provider_name()} account is not linked to an account here.",
+            return_params,
+        )
+
+    issued = _issue_sso_redirect(
+        user,
+        matched,
+        return_params.get("next", ""),
+        return_params.get("app_name", ""),
+        return_params.get("callback_url", ""),
+        source="sso_login",
+    )
+    if issued is None:
+        return _sso_failed("Access is restricted to administrators.", return_params)
+    return issued
 
 
 @bp.route("/whoami")

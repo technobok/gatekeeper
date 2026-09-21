@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Single Sign-On - Gatekeeper{% endblock %}
+
+{% block content %}
+<h1>Single Sign-On</h1>
+
+<p>
+    When single sign-on applies, it is attempted automatically. If it is off, or
+    it fails for a particular person, they get the email and magic-link form
+    instead — nobody is ever left without a way in.
+</p>
+
+<form method="post" action="{{ url_for('admin_sso.save') }}">
+
+    <label for="sso.mode">
+        Mode
+        <select id="sso.mode" name="sso.mode">
+            {% for m in modes %}
+            <option value="{{ m }}" {{ 'selected' if state.mode == m else '' }}>{{ m }}</option>
+            {% endfor %}
+        </select>
+        <small>
+            <code>off</code> — everyone uses magic links.
+            <code>proxy_header</code> — trust identity headers from a reverse proxy.
+            <code>oidc</code> — authenticate against the provider directly.
+        </small>
+    </label>
+
+    <fieldset>
+        <legend>Who it applies to</legend>
+        <label for="sso.external_enabled">
+            <input type="checkbox" id="sso.external_enabled" name="sso.external_enabled"
+                   {{ 'checked' if state.external_enabled else '' }}>
+            External requests
+        </label>
+        <label for="sso.internal_enabled">
+            <input type="checkbox" id="sso.internal_enabled" name="sso.internal_enabled"
+                   {{ 'checked' if state.internal_enabled else '' }}>
+            Internal requests
+        </label>
+    </fieldset>
+
+    <label for="sso.external_header">
+        External request header
+        <input type="text" id="sso.external_header" name="sso.external_header"
+               value="{{ state.external_header }}">
+        <small>
+            A request carrying this header is treated as external. Configurable
+            because it depends on what sits in front of us, not on anything
+            universal.
+        </small>
+    </label>
+
+    <h2>OIDC provider</h2>
+
+    <label for="oidc.issuer">
+        Issuer URL
+        <input type="text" id="oidc.issuer" name="oidc.issuer"
+               value="{{ state.issuer }}"
+               placeholder="https://login.microsoftonline.com/&lt;tenant&gt;/v2.0">
+        <small>Discovery is read from <code>{issuer}/.well-known/openid-configuration</code>.</small>
+    </label>
+
+    <label for="oidc.client_id">
+        Client ID
+        <input type="text" id="oidc.client_id" name="oidc.client_id" value="{{ state.client_id }}">
+    </label>
+
+    <label for="oidc.client_secret">
+        Client secret
+        <input type="password" id="oidc.client_secret" name="oidc.client_secret"
+               placeholder="{{ 'set — leave blank to keep' if state.secret_set else 'not set' }}">
+        <small>
+            Never displayed. Leaving this blank keeps the current value.
+            <label for="clear_secret">
+                <input type="checkbox" id="clear_secret" name="clear_secret"> Clear it instead
+            </label>
+        </small>
+    </label>
+
+    <label for="oidc.scopes">
+        Scopes
+        <input type="text" id="oidc.scopes" name="oidc.scopes" value="{{ state.scopes }}">
+    </label>
+
+    <label for="oidc.provider_name">
+        Provider name
+        <input type="text" id="oidc.provider_name" name="oidc.provider_name"
+               value="{{ state.provider_name }}">
+        <small>Used in messages shown to people, such as when a sign-in fails.</small>
+    </label>
+
+    <button type="submit">Save</button>
+</form>
+
+<h2>Redirect URI</h2>
+<p>Register this with the provider. A mismatch is the usual cause of a failed sign-in.</p>
+<pre style="user-select: all; cursor: pointer;" title="Click to select">{{ callback_url }}</pre>
+
+<h2>Status</h2>
+<p>
+    Mode <strong>{{ state.mode }}</strong>.
+    {% if state.mode == 'oidc' and not state.configured %}
+    <mark>Incomplete</mark> — an issuer, client ID and secret are all needed before
+    a sign-in can be attempted. Until then everyone gets the magic-link form.
+    {% elif state.mode == 'oidc' %}
+    Configured.
+    {% endif %}
+</p>
+{% endblock %}

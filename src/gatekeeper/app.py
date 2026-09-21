@@ -67,16 +67,21 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
         admin_api_keys,
         admin_groups,
         admin_sql,
+        admin_sso,
         admin_system,
         admin_user_properties,
         admin_users,
         api,
         auth,
     )
+    from gatekeeper.services import oidc_service
+
+    oidc_service.init_app(app)
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(api.bp)
     app.register_blueprint(admin_users.bp)
+    app.register_blueprint(admin_sso.bp)
     app.register_blueprint(admin_groups.bp)
     app.register_blueprint(admin_user_properties.bp)
     app.register_blueprint(admin_api_keys.bp)
