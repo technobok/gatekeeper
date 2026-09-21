@@ -419,11 +419,13 @@ def edit_user(username: str) -> Response:
     # the edit, so it is reported on its own.
     upn = request.form.get("upn", "").strip()
     if upn.lower() != (user.upn or "").lower():
+        # Captured before the update, which mutates the instance -- reading it
+        # afterwards records the new value as the old one and the entry says
+        # nothing.
+        previous = user.upn or "(none)"
         try:
             user.update(upn=upn)
-            _audit_log(
-                "user_upn_changed", new_username, f"{user.upn or '(none)'} -> {upn or '(none)'}"
-            )
+            _audit_log("user_upn_changed", new_username, f"{previous} -> {upn or '(none)'}")
         except Exception:
             flash(
                 f"Could not set the UPN to '{upn}' — another account already holds it. "
