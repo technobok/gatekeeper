@@ -397,3 +397,25 @@ td [role="group"] {
 select.tomselected {
     display: none !important;
 }
+
+/* A row of actions where some are links and some submit a form.
+ *
+ * Pico gives a submit button a bottom margin but an `a[role=button]` none, so
+ * in a grid the form sets the row height, the link stretches to match, and its
+ * label is left sitting at the top of an oversized box. Dropping the margin and
+ * letting each item size itself keeps them identical. */
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--pico-spacing);
+    align-items: flex-start;
+}
+
+.actions > form {
+    margin: 0;
+}
+
+.actions button,
+.actions [role="button"] {
+    margin-bottom: 0;
+}
