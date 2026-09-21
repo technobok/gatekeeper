@@ -322,8 +322,15 @@ to mean what it says is worse than not having one.
 it fails for a particular person, they get the email and magic-link form instead.
 Nobody is left without a way in.
 
-Configure it at *Admin → SSO*, which also shows the redirect URI to register with
-the provider:
+Configure it at *Admin → SSO*, which also shows the redirect URI being sent. That
+URI must match one registered with the provider **exactly** — a mismatch is the
+usual cause of a failed sign-in, and the provider says so plainly when it
+happens.
+
+Where the registration cannot be changed — one left behind by software since
+retired, say — `oidc.redirect_uri` names it instead, so long as the reverse proxy
+forwards that path here. The same value is used for the authorization request and
+the token exchange, because the provider checks it at both.
 
 | Setting | Default | Purpose |
 |---|---|---|
@@ -331,6 +338,7 @@ the provider:
 | `oidc.issuer` | | Discovery base URL |
 | `oidc.client_id` | | |
 | `oidc.client_secret` | | Shown in full on the admin page; empty it and save to clear |
+| `oidc.redirect_uri` | | Overrides the address sent to the provider; empty derives it |
 | `oidc.scopes` | `openid email profile` | |
 | `oidc.provider_name` | `single sign-on` | Used in messages, not as a button |
 

@@ -85,6 +85,12 @@ REGISTRY: list[ConfigEntry] = [
     ConfigEntry("oidc.client_id", ConfigType.STRING, "", "OIDC client ID"),
     ConfigEntry("oidc.client_secret", ConfigType.STRING, "", "OIDC client secret", secret=True),
     ConfigEntry(
+        "oidc.redirect_uri",
+        ConfigType.STRING,
+        "",
+        "Redirect URI to send; empty derives it from this request",
+    ),
+    ConfigEntry(
         "oidc.scopes",
         ConfigType.STRING,
         "openid email profile",

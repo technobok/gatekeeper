@@ -47,6 +47,18 @@
         <small>Empty this box and save to remove it.</small>
     </label>
 
+    <label for="oidc.redirect_uri">
+        Redirect URI override
+        <input type="text" id="oidc.redirect_uri" name="oidc.redirect_uri"
+               value="{{ state.redirect_uri }}" placeholder="{{ derived_url }}">
+        <small>
+            Leave empty unless the provider will not accept the address below.
+            A registration you cannot change — one left behind by software that
+            has been retired, say — can be kept working by naming it here, so
+            long as the reverse proxy forwards that path to this service.
+        </small>
+    </label>
+
     <label for="oidc.scopes">
         Scopes
         <input type="text" id="oidc.scopes" name="oidc.scopes" value="{{ state.scopes }}">
@@ -63,8 +75,20 @@
 </form>
 
 <h2>Redirect URI</h2>
-<p>Register this with the provider. A mismatch is the usual cause of a failed sign-in.</p>
-<pre style="user-select: all; cursor: pointer;" title="Click to select">{{ callback_url }}</pre>
+<p>
+    This is what gets sent to the provider, and it must match a URI registered
+    there exactly. A mismatch is the usual cause of a failed sign-in, and the
+    provider says so plainly when it happens.
+</p>
+<pre style="user-select: all; cursor: pointer;" title="Click to select">{{ effective_url }}</pre>
+{% if state.redirect_uri and state.redirect_uri != derived_url %}
+<p>
+    <small>
+        Overridden. Requests actually arrive at <code>{{ derived_url }}</code>,
+        so the reverse proxy must forward the address above to it.
+    </small>
+</p>
+{% endif %}
 
 <h2>Status</h2>
 <p>

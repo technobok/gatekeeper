@@ -23,6 +23,7 @@ _TEXT_SETTINGS = (
     "oidc.issuer",
     "oidc.client_id",
     "oidc.client_secret",
+    "oidc.redirect_uri",
     "oidc.scopes",
     "oidc.provider_name",
 )
@@ -53,15 +54,16 @@ def index() -> str:
         "admin/sso.html",
         state=state,
         modes=_MODES,
-        callback_url=_safe_callback_url(),
+        derived_url=_safe_callback_url(),
+        effective_url=state["redirect_uri"] or _safe_callback_url(),
     )
 
 
 def _safe_callback_url() -> str:
-    """The redirect URI to register with the provider.
+    """Where this service actually receives the callback.
 
-    Shown on the page because getting it wrong is the most common way to waste an
-    afternoon, and it cannot be guessed from the outside.
+    Shown on the page because a redirect URI mismatch is the most common way to
+    waste an afternoon, and the value cannot be guessed from the outside.
     """
     try:
         return url_for("auth.sso_callback", _external=True)

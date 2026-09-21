@@ -105,14 +105,30 @@ def _client() -> Any:
     return getattr(_oauth, name)
 
 
-def callback_url() -> str:
-    """The redirect URI, which must match one registered with the provider.
+def derived_callback_url() -> str:
+    """Where this service actually receives the callback.
 
     Built from the request so it is correct behind the reverse proxy and its path
     prefix; ProxyFix and `url_for(_external=True)` already carry the magic-link
     URLs, so the same machinery is doing the same job here.
     """
     return url_for("auth.sso_callback", _external=True)
+
+
+def callback_url() -> str:
+    """The redirect URI to send to the provider.
+
+    Usually the address above, but overridable, because the provider will only
+    accept a URI registered with it and that registration is often not ours to
+    change. Pointing this at a path the reverse proxy forwards here lets an
+    existing registration keep working -- which is exactly the situation left
+    behind when a proxy that owned the old URI is retired.
+
+    The same value must be used for the authorization request and the token
+    exchange, which is why both go through here.
+    """
+    override = str(_setting("oidc.redirect_uri")).strip()
+    return override or derived_callback_url()
 
 
 def begin(return_params: dict[str, str]) -> Any:
@@ -185,6 +201,7 @@ def describe() -> dict[str, Any]:
         "secret_set": bool(str(_setting("oidc.client_secret")).strip()),
         "scopes": str(_setting("oidc.scopes")),
         "provider_name": provider_name(),
+        "redirect_uri": str(_setting("oidc.redirect_uri")),
         # Shown in full: this is an admin-only page and an administrator needs to
         # be able to check the value against the provider, not just be told that
         # something is set.
