@@ -360,6 +360,87 @@ def ensure_admins_command():
     click.echo("Admin accounts ensured.")
 
 
+@main.command("backfill-upns")
+@click.option("--dry-run", is_flag=True, help="Report what would change, without writing")
+def backfill_upns_command(dry_run: bool):
+    """Populate empty user UPNs from LDAP.
+
+    Touches only the UPN, so unlike a full refresh it will not resync group
+    memberships or overwrite other fields. Accounts that already carry one are
+    left alone, as are accounts with no LDAP domain -- they have no directory
+    entry to take a UPN from.
+    """
+    app = _make_app()
+    with app.app_context():
+        from gatekeeper.models.user import User
+        from gatekeeper.services.ldap_service import (
+            is_ldap_enabled,
+            lookup_full_details,
+            resolve_domain,
+        )
+
+        if not is_ldap_enabled():
+            raise click.ClickException("LDAP is not enabled.")
+
+        filled = skipped = missing = clashed = 0
+        offset, page = 0, 500
+
+        while True:
+            # get_all() defaults to a limit of 100. Paginate explicitly, or a
+            # backfill quietly does the first page and reports success.
+            batch = User.get_all(limit=page, offset=offset)
+            if not batch:
+                break
+            offset += len(batch)
+
+            for user in batch:
+                if user.upn or not user.is_ldap:
+                    skipped += 1
+                    continue
+
+                domain = resolve_domain(user.ldap_domain)
+                bare = user.username.split("\\", 1)[1] if "\\" in user.username else user.username
+                ldap_user = lookup_full_details(domain, bare) if domain else None
+
+                if not ldap_user or not ldap_user.upn:
+                    click.echo(f"  no UPN in LDAP: {user.username}")
+                    missing += 1
+                    continue
+
+                if dry_run:
+                    click.echo(f"  would set {user.username} -> {ldap_user.upn}")
+                    filled += 1
+                    continue
+
+                try:
+                    user.update(upn=ldap_user.upn)
+                    filled += 1
+                except Exception:
+                    # Only one account may hold a UPN. Report the row and carry
+                    # on rather than abandoning the run partway through.
+                    click.echo(
+                        f"  already held by another account: {user.username} -> {ldap_user.upn}"
+                    )
+                    clashed += 1
+
+        verb = "would fill" if dry_run else "filled"
+        click.echo(
+            f"Done. {verb}: {filled}, skipped: {skipped}, "
+            f"no UPN in LDAP: {missing}, clashed: {clashed}"
+        )
+
+        remaining = _count_blank_upns()
+        click.echo(f"Accounts still without a UPN: {remaining} (these take the slow login path)")
+
+
+def _count_blank_upns() -> int:
+    """How many enabled accounts have no UPN, and so cannot resolve directly."""
+    from gatekeeper.db import get_db
+
+    row = get_db().execute("SELECT COUNT(*) FROM user WHERE upn = '' AND enabled = 1").fetchone()
+    return int(row[0]) if row else 0
+
+
 @main.command("generate-api-key")
 @click.option("--description", "-d", default="", help="Description for the API key")
 def generate_api_key_command(description: str):

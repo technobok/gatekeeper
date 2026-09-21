@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '4');
+INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '5');
 
 CREATE TABLE IF NOT EXISTS app_setting (
     key TEXT PRIMARY KEY,
@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS app_setting (
 
 CREATE TABLE IF NOT EXISTS user (
     username TEXT PRIMARY KEY,
+    -- The sign-in name the identity provider asserts. Second by request, so it
+    -- sits beside the key when reading the table by hand. Nothing depends on
+    -- column order: every query names its columns.
+    upn TEXT NOT NULL DEFAULT '',
     email TEXT NOT NULL,
     fullname TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
@@ -28,8 +32,7 @@ CREATE TABLE IF NOT EXISTS user (
     department TEXT NOT NULL DEFAULT '',
     manager TEXT NOT NULL DEFAULT '',
     telephone_number TEXT NOT NULL DEFAULT '',
-    mobile_number TEXT NOT NULL DEFAULT '',
-    upn TEXT NOT NULL DEFAULT ''
+    mobile_number TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_email ON user(email);

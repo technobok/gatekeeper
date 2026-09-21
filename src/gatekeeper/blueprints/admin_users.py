@@ -413,6 +413,25 @@ def edit_user(username: str) -> Response:
             mobile_number=mobile_number,
         )
 
+    # Applied separately, and outside the LDAP-readonly branch: clearing a UPN is
+    # how an operator releases a value so another account can claim it, and that
+    # needs to work for LDAP accounts too. A clash must not discard the rest of
+    # the edit, so it is reported on its own.
+    upn = request.form.get("upn", "").strip()
+    if upn.lower() != (user.upn or "").lower():
+        try:
+            user.update(upn=upn)
+            _audit_log(
+                "user_upn_changed", new_username, f"{user.upn or '(none)'} -> {upn or '(none)'}"
+            )
+        except Exception:
+            flash(
+                f"Could not set the UPN to '{upn}' — another account already holds it. "
+                f"Other changes were saved.",
+                "error",
+            )
+            return redirect(url_for("admin_users.list_users"))
+
     _audit_log(
         "user_updated", new_username, f"email={email}, fullname={fullname}, enabled={enabled}"
     )
@@ -627,6 +646,22 @@ def _refresh_ldap_user(user: User) -> tuple[bool, str]:
         telephone_number=ldap_user.telephone_number,
         mobile_number=ldap_user.mobile_number,
     )
+
+    # The UPN is updated separately so a clash cannot take the rest of the
+    # refresh down with it. Only one account may hold a given UPN, and a bulk
+    # refresh over a directory with any duplication will meet that -- it should
+    # report the row and carry on, not abort partway through.
+    if ldap_user.upn and ldap_user.upn.lower() != (user.upn or "").lower():
+        try:
+            user.update(upn=ldap_user.upn)
+        except Exception as exc:
+            current_app.logger.warning(
+                f"Could not set UPN {ldap_user.upn!r} on {user.username}: {exc}. "
+                f"Another account probably holds it."
+            )
+            return True, (
+                f"User '{user.username}' refreshed, but its UPN is already held by another account."
+            )
 
     # Sync LDAP group memberships
     current_ldap_groups = {

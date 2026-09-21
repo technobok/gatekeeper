@@ -39,6 +39,18 @@
                {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
     </label>
 
+    <label for="upn">
+        UPN
+        <input type="text" id="upn" name="upn"
+               value="{{ user.upn if user else '' }}"
+               placeholder="sign-in name asserted by the identity provider">
+        <small>
+            Used to match this account on single sign-on, and unique across
+            accounts. Normally filled in from LDAP or on first sign-in; clear it
+            to release the value if another account needs to claim it.
+        </small>
+    </label>
+
     <label for="given_name">
         Given Name
         <input type="text" id="given_name" name="given_name"

@@ -304,13 +304,25 @@ def _try_trusted_header_login(
                 matched = identifier
                 break
 
-        # Stamp the UPN so this account takes the fast path from now on. Filled
-        # in only when empty: overwriting would let one person's login quietly
-        # reassign another's, and the unique index would refuse it in any case.
-        if user is not None and upn and not user.upn:
+        # Record the UPN so this account takes the fast path from now on, and
+        # correct it when the identity provider now asserts a different one.
+        #
+        # Writing over an existing value is deliberate. Without it a UPN changed
+        # at the provider is never picked up: resolution falls back to the chain,
+        # matches the account, and then declines to fix the record -- while the
+        # stale value goes on occupying the unique index. The account has already
+        # been resolved by other means before we get here, and the ambiguity
+        # guard refuses to resolve an address held by more than one account, so
+        # this can only move a UPN onto the account it was already matched to.
+        if user is not None and upn and upn.lower() != (user.upn or "").lower():
+            previous = user.upn
             try:
                 user.update(upn=upn)
-                logger.info(f"Recorded UPN {upn!r} against {user.username!r}")
+                if previous:
+                    logger.info(f"Updated UPN for {user.username!r}: {previous!r} -> {upn!r}")
+                    _audit_log("entra_upn_changed", user.username, f"{previous} -> {upn}")
+                else:
+                    logger.info(f"Recorded UPN {upn!r} against {user.username!r}")
             except Exception:
                 logger.warning(
                     f"Could not record UPN {upn!r} against {user.username!r}; "

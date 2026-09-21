@@ -177,7 +177,7 @@ def get_schema_version() -> int:
         return 0
 
 
-CURRENT_SCHEMA_VERSION = 4
+CURRENT_SCHEMA_VERSION = 5
 
 
 def migrate_db() -> None:
@@ -194,6 +194,9 @@ def migrate_db() -> None:
 
     if version < 4:
         _migrate_v3_to_v4()
+
+    if version < 5:
+        _migrate_v4_to_v5()
 
 
 def _migrate_v1_to_v2() -> None:
@@ -212,6 +215,85 @@ def _migrate_v1_to_v2() -> None:
             "CREATE INDEX IF NOT EXISTS idx_user_property_username ON user_property(username);"
         )
         cursor.execute("UPDATE db_metadata SET value = '2' WHERE key = 'schema_version';")
+
+
+_USER_COLUMNS_V5 = (
+    "username, upn, email, fullname, enabled, login_salt, created_at, updated_at, "
+    "ldap_domain, given_name, mail_nickname, title, department, manager, "
+    "telephone_number, mobile_number"
+)
+
+
+def _count_users(conn: apsw.Connection) -> int:
+    row = conn.execute("SELECT COUNT(*) FROM user").fetchone()
+    return int(row[0]) if row else 0
+
+
+def _migrate_v4_to_v5() -> None:
+    """Rebuild the user table with upn second, and bump schema to 5.
+
+    Purely presentational: SQLite attaches no meaning to column order and every
+    query here names its columns, so nothing observable changes. It is a rebuild
+    because SQLite cannot reorder columns in place.
+
+    Two details are not negotiable. Foreign keys must be off, because user_group
+    and user_property reference user(username) with ON DELETE CASCADE and would
+    otherwise be emptied along with the old table. And the new table must be
+    built under a temporary name and the old one dropped -- never the old one
+    renamed aside, because modern SQLite rewrites foreign key references in other
+    tables when a table is renamed, which would silently repoint both children at
+    the renamed original.
+    """
+    conn = get_db()
+
+    # PRAGMA foreign_keys is a no-op inside a transaction, so it goes first.
+    conn.execute("PRAGMA foreign_keys = OFF;")
+    try:
+        before = _count_users(conn)
+
+        with transaction() as cursor:
+            cursor.execute(
+                "CREATE TABLE user_new ("
+                "    username TEXT PRIMARY KEY,"
+                "    upn TEXT NOT NULL DEFAULT '',"
+                "    email TEXT NOT NULL,"
+                "    fullname TEXT NOT NULL DEFAULT '',"
+                "    enabled INTEGER NOT NULL DEFAULT 1,"
+                "    login_salt TEXT NOT NULL,"
+                "    created_at TEXT NOT NULL,"
+                "    updated_at TEXT NOT NULL,"
+                "    ldap_domain TEXT NOT NULL DEFAULT '',"
+                "    given_name TEXT NOT NULL DEFAULT '',"
+                "    mail_nickname TEXT NOT NULL DEFAULT '',"
+                "    title TEXT NOT NULL DEFAULT '',"
+                "    department TEXT NOT NULL DEFAULT '',"
+                "    manager TEXT NOT NULL DEFAULT '',"
+                "    telephone_number TEXT NOT NULL DEFAULT '',"
+                "    mobile_number TEXT NOT NULL DEFAULT ''"
+                ");"
+            )
+            cursor.execute(
+                f"INSERT INTO user_new ({_USER_COLUMNS_V5}) SELECT {_USER_COLUMNS_V5} FROM user;"
+            )
+            cursor.execute("DROP TABLE user;")
+            cursor.execute("ALTER TABLE user_new RENAME TO user;")
+            # Indexes belong to the dropped table and have to be rebuilt.
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_email ON user(email);")
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_upn "
+                "ON user(LOWER(upn)) WHERE upn != '';"
+            )
+            cursor.execute("UPDATE db_metadata SET value = '5' WHERE key = 'schema_version';")
+
+        after = _count_users(conn)
+        if before != after:
+            raise RuntimeError(f"user table rebuild lost rows: {before} -> {after}")
+
+        violations = list(conn.execute("PRAGMA foreign_key_check;"))
+        if violations:
+            raise RuntimeError(f"user table rebuild broke references: {violations[:3]}")
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON;")
 
 
 def _migrate_v3_to_v4() -> None:

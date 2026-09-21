@@ -74,6 +74,13 @@ def index() -> str:
     entra_enabled = bool(_live_setting("auth.trusted_header_enabled"))
     entra_header = str(_live_setting("auth.trusted_header_email"))
 
+    # Accounts with no UPN cannot be resolved directly and fall back to matching
+    # on derived names and the email address -- which is slower, and the only
+    # path that can reach LDAP. Worth surfacing, because the number only goes
+    # down when someone runs a backfill or a refresh.
+    row = db.execute("SELECT COUNT(*) FROM user WHERE upn = '' AND enabled = 1").fetchone()
+    no_upn_count = int(row[0]) if row else 0
+
     return render_template(
         "admin/system.html",
         user_count=user_count,
@@ -83,6 +90,7 @@ def index() -> str:
         secret_key=secret_key,
         entra_enabled=entra_enabled,
         entra_header=entra_header,
+        no_upn_count=no_upn_count,
         recent_audit=recent_audit,
     )
 
