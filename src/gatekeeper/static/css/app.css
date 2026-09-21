@@ -36,11 +36,18 @@ header nav ul li {
     font-size: 1.1rem;
 }
 
-/* Compact buttons */
+/* Compact buttons.
+ *
+ * `[type="submit"]` and `[type="reset"]` must be listed explicitly. A
+ * `<button type="submit">` matches Pico's `[type=submit]` selector, which at
+ * (0,1,0) outranks a bare `button` here at (0,0,1) -- so without them Pico's
+ * full-size padding and font win, and every submitting button in the interface
+ * is a size larger than every `a[role=button]` beside it. */
 [role="button"],
 button,
-input[type="submit"],
-input[type="button"] {
+[type="submit"],
+[type="reset"],
+[type="button"] {
     padding: 0.4rem 0.8rem;
     font-size: 0.9rem;
 }
@@ -187,8 +194,12 @@ html.trans footer {
     margin-bottom: 1rem;
 }
 
-/* Compact table buttons */
+/* Compact table buttons. Attribute selectors again, for the reason given
+ * above: `table button` at (0,0,2) still loses to Pico's `[type=submit]`. */
 table button,
+table [type="submit"],
+table [type="reset"],
+table [type="button"],
 table [role="button"] {
     padding: 4px 8px;
     margin: 0 2px;
@@ -199,41 +210,6 @@ table [role="button"] {
 table form {
     display: inline;
     margin: 0;
-}
-
-/* Nav tweaks */
-nav small {
-    opacity: 0.7;
-    margin-right: 0.5rem;
-}
-
-header nav button {
-    margin: 0;
-    padding: 0.15rem 0.6rem;
-    vertical-align: middle;
-}
-
-/* A submit button that reads as a nav link.
- *
- * Logout stays a POST — a GET link would let any page, prefetcher or crawler
- * sign the user out — so it cannot simply become an <a>. This makes it look
- * like the Users / Groups / System links beside it. */
-header nav button.linklike {
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0;
-    width: auto;
-    font: inherit;
-    color: var(--pico-primary);
-    /* The nav links beside it are not underlined, so this is not either. */
-    text-decoration: none;
-    cursor: pointer;
-}
-
-header nav button.linklike:hover {
-    color: var(--pico-primary-hover);
-    text-decoration: underline;
 }
 
 /* Stat cards */
@@ -400,10 +376,16 @@ select.tomselected {
 
 /* A row of actions where some are links and some submit a form.
  *
- * Pico gives a submit button a bottom margin but an `a[role=button]` none, so
- * in a grid the form sets the row height, the link stretches to match, and its
- * label is left sitting at the top of an oversized box. Dropping the margin and
- * letting each item size itself keeps them identical. */
+ * The form needs `display: flex` as much as the row does. A `button` is
+ * inline-level, so a block form wraps it in a line box and inherits that line
+ * box's descender space -- a few pixels below the baseline that belong to no
+ * element and cannot be padded away. The form is then taller than its own
+ * button, while an `a[role=button]` next to it, blockified as a flex item, is
+ * exactly its own height. Making the form a flex container blockifies the
+ * button too and the two agree.
+ *
+ * Pico also gives a submit button a bottom margin and the link none, which is
+ * the other half of the difference. */
 .actions {
     display: flex;
     flex-wrap: wrap;
@@ -412,6 +394,7 @@ select.tomselected {
 }
 
 .actions > form {
+    display: flex;
     margin: 0;
 }
 
