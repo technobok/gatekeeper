@@ -53,28 +53,6 @@ REGISTRY: list[ConfigEntry] = [
         "auth.magic_link_expiry_seconds", ConfigType.INT, 3600, "Magic link token lifetime"
     ),
     ConfigEntry("auth.admin_emails", ConfigType.STRING_LIST, [], "Auto-provisioned admin emails"),
-    # -- trusted header auth (Entra via oauth2-proxy) --
-    # Read live from AppSetting on each login request, not from app.config, so the
-    # switch takes effect without restarting the container.  Default off so that
-    # deploying this ahead of the Caddy change cannot trust unstripped headers.
-    ConfigEntry(
-        "auth.trusted_header_enabled",
-        ConfigType.BOOL,
-        False,
-        "Trust proxy-supplied identity headers for external (Entra) logins",
-    ),
-    ConfigEntry(
-        "auth.trusted_header_email",
-        ConfigType.STRING,
-        "X-Auth-Request-Email",
-        "Request header carrying the authenticated email address",
-    ),
-    ConfigEntry(
-        "auth.trusted_header_name",
-        ConfigType.STRING,
-        "",
-        "Request header carrying a display name; empty if the proxy supplies none",
-    ),
     # -- single sign-on --
     #
     # Named for the concept, not the vendor: Gatekeeper is a shared service and a
@@ -86,11 +64,16 @@ REGISTRY: list[ConfigEntry] = [
     # possible here -- the external forwarder arrives from a 10.* address like
     # everything else -- and a switch that cannot be trusted to mean what it says
     # is worse than no switch. On means on, for everyone.
+    #
+    # Nor is there a mode for trusting headers from a proxy. Gatekeeper used to
+    # have one, and it was only ever safe behind a proxy that stripped any
+    # client-supplied copy first. Once the proxy went, the mode could roll
+    # nothing back and would have trusted whatever arrived.
     ConfigEntry(
         "sso.mode",
         ConfigType.STRING,
         "off",
-        "Single sign-on mode: off, proxy_header, or oidc",
+        "Single sign-on mode: off or oidc",
     ),
     # -- oidc --
     ConfigEntry(
@@ -112,12 +95,6 @@ REGISTRY: list[ConfigEntry] = [
         ConfigType.STRING,
         "single sign-on",
         "Provider name, used in messages shown to users",
-    ),
-    ConfigEntry(
-        "auth.trusted_header_username",
-        ConfigType.STRING,
-        "X-Auth-Request-Preferred-Username",
-        "Request header carrying the UPN, tried when the email matches no account",
     ),
     # -- proxy --
     ConfigEntry("proxy.x_forwarded_for", ConfigType.INT, 0, "Trust X-Forwarded-For (hop count)"),

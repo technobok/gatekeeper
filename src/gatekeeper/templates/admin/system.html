@@ -27,28 +27,6 @@
 <p>Session invalidation salt embedded in tokens. Rotating invalidates all sessions.</p>
 <pre style="user-select: all; cursor: pointer;" title="Click to select">{{ app_salt }}</pre>
 
-<h2>External Authentication (Entra)</h2>
-<p>
-    Status: <strong>{{ "Enabled" if entra_enabled else "Disabled" }}</strong>
-    &mdash; reading <code>{{ entra_header }}</code>.
-</p>
-{% if no_upn_count %}
-<p>
-    <strong>{{ no_upn_count }}</strong>
-    account{{ '' if no_upn_count == 1 else 's' }} without a UPN, so single sign-on
-    must fall back to matching on name and email.
-    Run <code>gatekeeper-admin backfill-upns</code>, or refresh from LDAP.
-</p>
-{% endif %}
-
-<form method="post" action="{{ url_for('admin_system.toggle_entra') }}">
-    <input type="hidden" name="enable" value="{{ 'false' if entra_enabled else 'true' }}">
-    <button type="submit" class="{{ 'secondary' if entra_enabled else 'primary' }}"
-            onclick="return confirm({{ ('Disable Entra login? External users will fall back to magic links.' if entra_enabled else 'Enable Entra login for external users?') | tojson }})">
-        {{ "Disable" if entra_enabled else "Enable" }} Entra Login
-    </button>
-</form>
-
 <h2>Actions</h2>
 <div role="group">
     <form method="post" action="{{ url_for('admin_system.rotate_secret_key') }}" style="display: inline;">

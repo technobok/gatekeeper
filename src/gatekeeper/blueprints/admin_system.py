@@ -69,11 +69,6 @@ def index() -> str:
     app_salt = AppSetting.get_app_salt()
     secret_key = AppSetting.get_secret_key()
 
-    from gatekeeper.blueprints.auth import _live_setting
-
-    entra_enabled = bool(_live_setting("auth.trusted_header_enabled"))
-    entra_header = str(_live_setting("auth.trusted_header_email"))
-
     # Accounts with no UPN cannot be resolved directly and fall back to matching
     # on derived names and the email address -- which is slower, and the only
     # path that can reach LDAP. Worth surfacing, because the number only goes
@@ -88,8 +83,6 @@ def index() -> str:
         key_count=key_count,
         app_salt=app_salt,
         secret_key=secret_key,
-        entra_enabled=entra_enabled,
-        entra_header=entra_header,
         no_upn_count=no_upn_count,
         recent_audit=recent_audit,
     )
@@ -115,24 +108,6 @@ def rotate_app_salt() -> Response:
     _audit_log("app_salt_rotated", details="All sessions invalidated via admin UI")
 
     flash("App salt rotated. All user sessions have been invalidated.", "warning")
-    return redirect(url_for("admin_system.index"))
-
-
-@bp.route("/toggle-entra", methods=["POST"])
-@admin_required
-def toggle_entra() -> Response:
-    """Turn trusted-header (Entra) login on or off, effective immediately."""
-    enable = request.form.get("enable") == "true"
-    AppSetting.set("auth.trusted_header_enabled", "true" if enable else "false")
-    _audit_log(
-        "entra_toggled",
-        details=f"Trusted header login {'enabled' if enable else 'disabled'} via admin UI",
-    )
-
-    if enable:
-        flash("External (Entra) login enabled.", "success")
-    else:
-        flash("External (Entra) login disabled. Everyone now uses magic links.", "warning")
     return redirect(url_for("admin_system.index"))
 
 

@@ -26,7 +26,7 @@ _TEXT_SETTINGS = (
     "oidc.scopes",
     "oidc.provider_name",
 )
-_MODES = ("off", "proxy_header", "oidc")
+_MODES = ("off", "oidc")
 
 
 def _audit_log(action: str, target: str | None = None, details: str | None = None) -> None:

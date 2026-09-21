@@ -224,9 +224,12 @@ All settings are stored in the SQLite database (`app_setting` table) and managed
 | `outbox.api_key` | string | | Outbox API key |
 | `auth.magic_link_expiry_seconds` | int | `3600` | Magic link token lifetime |
 | `auth.admin_emails` | string list | | Comma-separated emails to auto-provision as admins |
-| `auth.trusted_header_enabled` | bool | `false` | Trust proxy-supplied identity headers (see below) |
-| `auth.trusted_header_email` | string | `X-Auth-Request-Email` | Header carrying the authenticated email |
-| `auth.trusted_header_name` | string | `X-Auth-Request-User` | Header carrying the display name |
+| `sso.mode` | string | `off` | Single sign-on: `off` or `oidc` |
+| `oidc.issuer` | string | | OIDC issuer URL, used for discovery |
+| `oidc.client_id` | string | | |
+| `oidc.client_secret` | string | | |
+| `oidc.scopes` | string | `openid email profile` | |
+| `oidc.provider_name` | string | `single sign-on` | Used in messages shown to people |
 | `proxy.x_forwarded_for` | int | `0` | Trust X-Forwarded-For (hop count) |
 | `proxy.x_forwarded_proto` | int | `0` | Trust X-Forwarded-Proto (hop count) |
 | `proxy.x_forwarded_host` | int | `0` | Trust X-Forwarded-Host (hop count) |
@@ -304,21 +307,14 @@ Applications that use centralised SSO: [Cadence](../cadence/), [Folio](../folio/
 
 ### Single sign-on
 
-Gatekeeper can authenticate people against an OIDC provider itself, or trust
-identity headers from a reverse proxy that has already done so. `sso.mode`
-chooses:
-
-| Mode | Meaning |
-|---|---|
-| `off` | Everyone uses the magic-link form |
-| `proxy_header` | Trust `X-Auth-Request-*` from a reverse proxy |
-| `oidc` | Authenticate against the provider directly |
+Gatekeeper authenticates people against an OIDC provider itself. `sso.mode` is
+`off` or `oidc`, and defaults to `off`.
 
 Named for the protocol rather than a vendor: this is a shared service and a
 deployment might point it at any provider.
 
 **On means on, for everyone.** There is deliberately no internal/external split —
-telling them apart is not reliably possible, since the external forwarder arrives
+telling them apart is not reliably possible, since an external forwarder arrives
 from a private address like everything else, and a switch that cannot be trusted
 to mean what it says is worse than not having one.
 
@@ -331,22 +327,25 @@ the provider:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| `sso.mode` | `off` | `off`, `proxy_header`, or `oidc` |
+| `sso.mode` | `off` | `off` or `oidc` |
 | `oidc.issuer` | | Discovery base URL |
 | `oidc.client_id` | | |
 | `oidc.client_secret` | | Shown in full on the admin page; empty it and save to clear |
 | `oidc.scopes` | `openid email profile` | |
 | `oidc.provider_name` | `single sign-on` | Used in messages, not as a button |
 
-**Why OIDC is preferable to trusting headers.** A header can be forged by
-anything able to reach this service directly, which on a shared Docker network is
-every other container. OIDC removes the attack rather than mitigating it: there
-is nothing to forge, because nothing is trusted. The proxy-header path remains
-only until the OIDC one is proven in place.
+There was once a mode that trusted `X-Auth-Request-*` headers from a proxy which
+had done the authenticating. It is gone. It was only ever safe behind a proxy
+that stripped any client-supplied copy first, and once that proxy was removed the
+mode could roll nothing back while being perfectly capable of trusting whatever
+arrived. Nothing is trusted now: there is no header to forge.
 
 **If a sign-in fails**, the person lands on the form with an explanation, and a
 one-shot marker stops the login page sending them straight back to the provider —
-which would otherwise be a loop with no way out.
+which would otherwise be a loop with no way out. The reason is logged rather than
+shown, because the distinctions that matter — no account, or an address several
+accounts share — matter to whoever reads the log, not to the person at the
+screen.
 
 **`?sso=off`** on the login URL skips the attempt. It is deliberately absent from
 the interface: someone the provider will not authenticate never returns to us to
@@ -358,128 +357,6 @@ be offered a fallback, so an administrator needs a link they can send.
 username, email, sign-in name, groups. Any authenticated user can reach it, and
 `/` sends non-administrators there rather than refusing them, because a 403 tells
 somebody nothing about why an application thinks they are the wrong person.
-
-Administrators also have `/auth/whoami/resolution`, which reports the identity
-headers a request carried and which account they would match. It is only
-meaningful under `proxy_header`; with OIDC there are no headers, because nothing
-is trusted.
-
-### External login via trusted headers (Entra)### External login via trusted headers (Entra)
-
-External users reach the platform through Microsoft Entra Application Proxy, which
-authenticates them before their request arrives. Rather than asking them for a
-magic link on top of that, Gatekeeper's login page can accept the identity the
-reverse proxy has already established.
-
-When the feature is on and the request carries the configured header, the GET
-handler for `/auth/login` skips the form entirely: it resolves the user, mints a
-magic-link token, and redirects straight to the calling app's `callback_url`. No
-email is sent. The application sees an ordinary magic-link callback and cannot
-tell the difference, so **no application needs changing**.
-
-A stamped account resolves in **one indexed lookup on the UPN**, with no
-derivation and no LDAP. The UPN is what the identity provider actually asserts,
-it is unique, and working out who someone is from an email address — for a person
-who has just authenticated — is work that should need doing once at most.
-
-It is populated four ways:
-
-- **`gatekeeper-admin backfill-upns`** fills in accounts that have none. Supports
-  `--dry-run`, touches only the UPN so it will not resync groups, and names the
-  accounts LDAP has no UPN for. This is what to run against an existing database.
-- **Refresh from LDAP**, per user or for all LDAP users — both write it.
-- **A login** that resolves by any other means records it, so the slow path runs
-  at most once per person, and corrects it when the provider asserts a different
-  one.
-- **The admin user form**, where it can be edited or cleared by hand.
-
-The unique index refuses a UPN already held by another account. When that
-happens the operation reports it and carries on rather than failing, and clearing
-the UPN on the account holding it is the manual repair.
-
-Accounts with no `ldap_domain` — manually created and magic-link-only ones — are
-skipped by the refresh buttons and the backfill, since they have no directory
-entry to take a UPN from. They resolve by the fallback chain, which for them is
-correct. The admin system page reports how many accounts are in that position.
-
-The manual login form is unaffected and still reaches LDAP, which it must: people
-type a bare username there, and resolving that genuinely requires a directory
-lookup.
-
-When no account carries the UPN yet, resolution falls back to the same path as
-the login form — database lookup, then LDAP — trying each of these in turn and
-stopping at the first match:
-
-1. `DOMAIN\username` for each domain in `ldap.domains`, paired with the sign-in
-   name (`pawe@demant.com` with domain `ASIAP` → `ASIAP\pawe`)
-2. `DOMAIN\username` derived from the UPN's own domain label
-   (`pawe@asiap.demant.com` → `asiap\pawe`)
-3. the email address
-4. the UPN as an address
-
-The derived name goes first because it is a primary key: it matches one account
-or none. An email address is neither unique nor reliably distinct — several
-accounts can carry the same one, and when they do the lookup gives up rather than
-guess.
-
-Nothing supplies `DOMAIN\username`; it is derived, on the assumption that the
-first domain label is the NetBIOS name and the UPN prefix is the account name.
-That holds in an AD-backed tenant and fails safe when it does not — a wrong guess
-matches nothing and the address is tried next. It is deliberately not derived
-from the email address, because an address whose local part resembles an account
-name would send an LDAP lookup after a name nobody claimed, and LDAP results are
-auto-provisioned.
-
-Nothing in the token carries the AD domain. Entra sends the routable UPN, so a
-tenant signing in as `someone@company.com` while the directory knows them as
-`CORP\someone` gives no hint that `CORP` exists — which is why step 1 pairs the
-sign-in name with the domains Gatekeeper has already been told about in
-`ldap.domains`, rather than trying to infer one.
-
-With `ldap.domains` unset and a UPN domain that does not match the directory,
-the address is the only usable identifier. **Email addresses must then be unique
-per account**, or the login cannot proceed: two accounts sharing one leaves
-nothing to choose between. `/auth/whoami` reports this as `AMBIGUOUS` and names
-the count.
-
-Only an address in use by **no** account is provisioned. If it is already in use
-the lookup was ambiguous rather than empty, and provisioning would add yet another
-account with the same address while handing the user an empty one carrying none
-of their groups. Someone
-who exists in Entra but in neither the database nor LDAP is created from the
-Entra claims and added to `standard`. If their username would collide with a
-different account, Gatekeeper refuses and falls back to the form rather than
-taking the account over.
-
-Both a successful login and any provisioning are written to the audit log
-(`entra_login`, `entra_provision`), so these sessions are distinguishable.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `auth.trusted_header_enabled` | `false` | Master switch |
-| `auth.trusted_header_email` | `X-Auth-Request-Email` | Header carrying the email |
-| `auth.trusted_header_name` | *(empty)* | Header carrying a display name, if the proxy supplies one |
-| `auth.trusted_header_username` | `X-Auth-Request-Preferred-Username` | Header carrying the UPN, tried if the email matches nothing |
-
-`/auth/whoami` reports what a proxy-authenticated request actually carries: the
-headers received, every identifier tried in order, which one matched, and the
-resulting account and groups. It is read-only — the live login path lets LDAP
-auto-provision, and a diagnostic that could create accounts would be a poor
-diagnostic.
-
-Toggle it from *Admin → System → External Authentication (Entra)*, or with
-`make config-set KEY=auth.trusted_header_enabled VAL=true`.
-
-The switch is read straight from the database on every login request rather than
-from `app.config`, which is only populated at startup — so turning it off takes
-effect on the very next request, with no restart. That matters: it is the lever
-you reach for when external logins are going wrong.
-
-**This is only safe behind a proxy that strips inbound `X-Auth-*` headers.**
-Gatekeeper trusts the header completely, so anything able to set it can log in as
-any user. The reverse proxy must remove any client-supplied copy before routing —
-see [webreports-caddy](../webreports-caddy/). Leave the setting off if you are not
-sure that is in place; it defaults to off for exactly that reason.
 
 ## Roadmap
 

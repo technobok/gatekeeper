@@ -31,7 +31,7 @@ bp = Blueprint("auth", __name__, url_prefix="/auth")
 # Set by the reverse proxy when it sees a logout, and cleared here after one
 # request. Under SSO the identity headers would otherwise sign the user straight
 # back in, making the logout button appear to do nothing.
-SIGNED_OUT_COOKIE = "entra_signedout"
+SIGNED_OUT_COOKIE = "sso_signedout"
 
 # Set when a single sign-on attempt fails, and honoured exactly once.
 #
@@ -310,15 +310,13 @@ def _resolve_sso_user(email: str, upn: str, fullname: str = "") -> tuple[User | 
         # and hands the user an empty account carrying none of their groups.
         sharing = User.get_by_email(email)
         if sharing:
+            # Logged, not flashed. This is a resolver: the caller owns what the
+            # person is told, and messaging from both ends produced two
+            # explanations at once, the vaguer of which arrived second.
             logger.warning(
                 f"Single sign-on for {email} matched no account, but the address is "
                 f"already in use by {len(sharing)} accounts; refusing to provision. "
                 f"Consolidate them, or sign in with a username."
-            )
-            flash(
-                "Your email address matches more than one account. "
-                "Please sign in with your username below.",
-                "error",
             )
             return None, None
 
@@ -362,37 +360,6 @@ def _stamp_upn(user: User, upn: str) -> None:
             f"Could not record UPN {upn!r} against {user.username!r}; "
             f"it is probably already held by another account"
         )
-
-
-def _try_trusted_header_login(
-    next_url: str, app_name: str, sso_callback_url: str
-) -> Response | None:
-    """Complete a login from proxy-supplied identity headers, when present.
-
-    The older of the two single sign-on paths, kept until the OIDC one is proven.
-    It trusts a header, which means anything able to reach this service directly
-    can forge one -- which is exactly why it is going away.
-    """
-    if str(_live_setting("sso.mode")).strip().lower() == "oidc":
-        return None
-    if not _live_setting("auth.trusted_header_enabled"):
-        return None
-
-    email = request.headers.get(str(_live_setting("auth.trusted_header_email")), "").strip()
-    if not email:
-        return None
-
-    upn = request.headers.get(str(_live_setting("auth.trusted_header_username")), "").strip()
-    name_header = str(_live_setting("auth.trusted_header_name"))
-    fullname = request.headers.get(name_header, "").strip() if name_header else ""
-
-    user, matched = _resolve_sso_user(email, upn, fullname)
-    if user is None:
-        return None
-
-    return _issue_sso_redirect(
-        user, matched, next_url, app_name, sso_callback_url, source="entra_login"
-    )
 
 
 def _issue_sso_redirect(
@@ -472,17 +439,6 @@ def login() -> str | Response:
         sso_declined = request.args.get("sso", "").lower() in ("off", "0", "no")
 
         if not (just_signed_out or sso_failed or sso_declined):
-            # Pass the raw value, not the index fallback: with a callback_url the
-            # destination belongs to the calling app, and an empty redirect leaves
-            # the app to choose its own landing page. Sending someone to
-            # Gatekeeper's index instead lands them on an admin-only page, which
-            # bounces them back to this login form having actually signed in.
-            entra_redirect = _try_trusted_header_login(
-                request.args.get("next", ""), app_name, sso_callback_url
-            )
-            if entra_redirect is not None:
-                return entra_redirect
-
             to_provider = _try_oidc_login(app_name, sso_callback_url)
             if to_provider is not None:
                 return to_provider
@@ -635,8 +591,13 @@ def sso_callback() -> Response:
 
     user, matched = _resolve_sso_user(email, upn, oidc_service.claim_fullname(claims))
     if user is None:
+        # Deliberately one message, whatever the reason. The distinctions that
+        # matter -- no account, or an address several accounts share -- matter to
+        # an administrator reading the log, not to the person at the screen, who
+        # needs to know only that this route is closed and the form is open.
         return _sso_failed(
-            f"Your {oidc_service.provider_name()} account is not linked to an account here.",
+            f"Could not sign you in with {oidc_service.provider_name()}. "
+            f"Please use your email address below.",
             return_params,
         )
 
@@ -676,91 +637,6 @@ def whoami() -> str | Response:
         groups=Group.get_groups_for_user(user.username),
         is_admin=Group.user_in_group(user.username, "admin"),
     )
-
-
-@bp.route("/whoami/resolution")
-def whoami_resolution() -> Response:
-    """How a proxy-authenticated request would resolve. Diagnostic, admin-only.
-
-    Only useful while ``sso.mode`` is ``proxy_header``: it reports the identity
-    headers a request carried and which account they would match. Under OIDC
-    there are no headers, because nothing is trusted.
-
-    Checked here rather than with the decorator, which is defined further down
-    this module and so is not available to a route above it.
-    """
-    user = g.get("user")
-    if user is None or not Group.user_in_group(user.username, "admin"):
-        abort(403)
-
-    email_header = str(_live_setting("auth.trusted_header_email"))
-    upn_header = str(_live_setting("auth.trusted_header_username"))
-    email = request.headers.get(email_header, "").strip()
-    upn = request.headers.get(upn_header, "").strip()
-
-    lines = [
-        f"sso.mode          {_live_setting('sso.mode')}",
-        f"{email_header}  {email or '(not sent)'}",
-        f"{upn_header}  {upn or '(not sent)'}",
-        "",
-    ]
-
-    if not email and not upn:
-        lines += [
-            "No identity headers arrived.",
-            "",
-            "Under OIDC that is expected -- Gatekeeper authenticates against the",
-            "provider itself and trusts no headers at all.",
-        ]
-        return Response("\n".join(lines) + "\n", mimetype="text/plain")
-
-    stamped = User.get_by_upn(upn)
-    if stamped is not None:
-        lines += [
-            f"Matches directly on UPN: {stamped.username}",
-            "  One indexed lookup. No derivation, no LDAP.",
-        ]
-        return Response("\n".join(lines) + "\n", mimetype="text/plain")
-
-    lines.append("No account carries this UPN yet, so it falls back to matching.")
-    lines.append("A successful login records the UPN, and later ones skip this.")
-    lines.append("")
-    lines.append("Identifiers tried, in order:")
-
-    matched = None
-    domains = current_app.config.get("LDAP_DOMAINS", [])
-    for n, identifier in enumerate(_identifier_candidates(email, upn, domains), start=1):
-        if matched is not None:
-            lines.append(f"  {n}. {identifier}  (not reached)")
-            continue
-        found = User.get(identifier) if "@" not in identifier else None
-        if found is None and "@" in identifier:
-            by_email = User.get_by_email(identifier)
-            if len(by_email) > 1:
-                lines.append(f"  {n}. {identifier}  AMBIGUOUS: {len(by_email)} accounts share it")
-                continue
-            found = by_email[0] if by_email else None
-        if found is not None:
-            matched = found
-            lines.append(f"  {n}. {identifier}  MATCHED")
-        else:
-            lines.append(f"  {n}. {identifier}  no account")
-
-    lines.append("")
-    if matched is None:
-        lines += [
-            "No local account matched.",
-            "A real login would next try LDAP, and provision an account only if",
-            "the email address is not already in use.",
-        ]
-    else:
-        groups = ", ".join(Group.get_groups_for_user(matched.username)) or "(none)"
-        lines += [
-            f"Resolves to: {matched.username}",
-            f"  groups     {groups}",
-        ]
-
-    return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
 
 @bp.route("/verify")
