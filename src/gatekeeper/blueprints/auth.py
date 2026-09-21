@@ -693,11 +693,20 @@ def logout() -> Response:
 
 @bp.before_app_request
 def load_user() -> None:
-    """Load the current user from the auth cookie on every request."""
+    """Load the current user from the auth cookie on every request.
+
+    Also records whether they administer anything, because the navigation has to
+    decide what to offer. Ordinary users can hold a session here now -- they
+    reach their own account page -- and showing them links to pages that will
+    refuse them is a poor welcome.
+    """
     g.user = None
+    g.is_admin = False
     token = request.cookies.get("gk_session")
     if token:
         g.user = token_service.verify_auth_token(token)
+        if g.user is not None:
+            g.is_admin = Group.user_in_group(g.user.username, "admin")
 
 
 def _is_htmx() -> bool:

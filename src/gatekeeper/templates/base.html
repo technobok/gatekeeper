@@ -13,10 +13,11 @@
     <header class="container">
         <nav>
             <ul>
-                <li><a href="{{ url_for('admin_system.index') }}" class="brand"><strong>Gatekeeper</strong></a></li>
+                <li><a href="{{ url_for('index') }}" class="brand"><strong>Gatekeeper</strong></a></li>
             </ul>
             <ul>
                 {% if g.user %}
+                {% if g.is_admin %}
                 <li><a href="{{ url_for('admin_users.list_users') }}">Users</a></li>
                 <li><a href="{{ url_for('admin_groups.list_groups') }}">Groups</a></li>
                 <li><a href="{{ url_for('admin_user_properties.list_properties') }}">Properties</a></li>
@@ -24,7 +25,12 @@
                 <li><a href="{{ url_for('admin_sso.index') }}">SSO</a></li>
                 <li><a href="{{ url_for('admin_system.index') }}">System</a></li>
                 <li><a href="{{ url_for('admin_sql.index') }}">SQL</a></li>
-                <li><small>{{ g.user.username }}</small></li>
+                {% endif %}
+                <li>
+                    <a href="{{ url_for('auth.whoami') }}" title="Your account">
+                        <small>{{ g.user.username }}</small>
+                    </a>
+                </li>
                 <li>
                     <form method="post" action="{{ url_for('auth.logout') }}" style="display:inline; margin:0;">
                         <button type="submit" class="linklike">Logout</button>

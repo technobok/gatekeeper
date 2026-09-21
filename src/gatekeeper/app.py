@@ -142,13 +142,10 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
     def index() -> Response:
         from flask import g, redirect, url_for
 
-        from gatekeeper.models.group import Group
-
         # Administration is not for most people, and a 403 tells them nothing.
         # Send them to their own account instead, which answers the question
         # they actually arrived with.
-        user = g.get("user")
-        if user is not None and not Group.user_in_group(user.username, "admin"):
+        if g.get("user") is not None and not g.get("is_admin"):
             return redirect(url_for("auth.whoami"))
         return redirect(url_for("admin_system.index"))
 
