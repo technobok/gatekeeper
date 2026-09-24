@@ -402,3 +402,94 @@ select.tomselected {
 .actions [role="button"] {
     margin-bottom: 0;
 }
+
+/* ------------------------------------------------------------ narrow screens */
+/* The brand never gives way: Pico caps images at their container's width, and
+   a crowded nav squashes the logo and wraps the title. The menu gives way
+   instead, behind a hamburger, below the width where it all fits. */
+header nav > ul:first-of-type {
+    flex-shrink: 0;
+}
+
+header nav .brand {
+    white-space: nowrap;
+}
+
+header nav .brand img {
+    max-width: none;
+}
+
+.nav-toggle {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    header {
+        position: relative;
+    }
+
+    .nav-toggle {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.5rem;
+        margin: 0;
+        width: auto;
+        background: none;
+        border: none;
+        color: var(--pico-primary);
+        box-shadow: none;
+    }
+
+    .nav-toggle:hover,
+    .nav-toggle[aria-expanded="true"] {
+        color: var(--pico-primary-hover);
+    }
+
+    /* Every menu item lives behind the button, in a panel under the header */
+    header nav ul.nav-menu {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        margin: 0;
+        padding: 0.25rem var(--pico-spacing);
+        flex-direction: column;
+        align-items: stretch;
+        background: var(--pico-background-color);
+        border-bottom: var(--pico-border-width) solid var(--pico-muted-border-color);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+    }
+
+    header nav ul.nav-menu.open {
+        display: flex;
+    }
+
+    header nav ul.nav-menu li {
+        display: block;
+        padding: 0;
+        border-bottom: var(--pico-border-width) solid var(--pico-muted-border-color);
+    }
+
+    header nav ul.nav-menu li:last-child {
+        border-bottom: none;
+    }
+
+    /* A full-width row is the tap target, not just the words */
+    header nav ul.nav-menu li > a,
+    header nav ul.nav-menu li > button,
+    header nav ul.nav-menu li > .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+        padding: 0.75rem 0;
+    }
+
+    header nav ul.nav-menu li > button,
+    header nav ul.nav-menu li > [role="button"] {
+        width: 100%;
+        justify-content: center;
+    }
+}

@@ -73,3 +73,31 @@ document.body.addEventListener("htmx:responseError", function (event) {
     // Set as cookie for full page requests
     document.cookie = 'tz=' + tz + ';path=/;SameSite=Lax';
 })();
+
+// Hamburger menu on narrow screens (the CSS shows the button only there)
+document.addEventListener('DOMContentLoaded', function() {
+    var toggle = document.querySelector('.nav-toggle');
+    var menu = document.getElementById('nav-menu');
+    if (!toggle || !menu) return;
+
+    function setOpen(open) {
+        menu.classList.toggle('open', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        setOpen(!menu.classList.contains('open'));
+    });
+
+    // Close on a tap outside it, or Escape
+    document.addEventListener('click', function(e) {
+        if (!menu.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && menu.classList.contains('open')) {
+            setOpen(false);
+            toggle.focus();
+        }
+    });
+});
