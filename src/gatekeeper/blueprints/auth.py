@@ -159,13 +159,7 @@ def _auto_provision(ldap_user: Any) -> User:
         email=ldap_user.email,
         fullname=ldap_user.fullname,
         ldap_domain=ldap_domain,
-        given_name=ldap_user.given_name,
-        mail_nickname=ldap_user.mail_nickname,
-        title=ldap_user.title,
-        department=ldap_user.department,
-        manager=ldap_user.manager,
-        telephone_number=ldap_user.telephone_number,
-        mobile_number=ldap_user.mobile_number,
+        **ldap_user.profile_fields(),
         upn=ldap_user.upn,
     )
 

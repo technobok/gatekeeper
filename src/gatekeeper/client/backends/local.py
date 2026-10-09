@@ -11,7 +11,7 @@ from pathlib import Path
 
 import apsw
 
-from gatekeeper.client.models import Group, User
+from gatekeeper.client.models import PROFILE_FIELDS, Group, User
 from gatekeeper.client.token import create_magic_link_token
 
 logger = logging.getLogger("gatekeeper.client.local")
@@ -78,19 +78,33 @@ class LocalBackend:
     def get_user(self, username: str) -> User | None:
         conn = self._connect()
         try:
-            row = conn.execute(
-                "SELECT username, email, fullname, enabled FROM user WHERE LOWER(username) = ?",
-                (username.lower(),),
-            ).fetchone()
+            try:
+                row = conn.execute(
+                    f"SELECT username, email, fullname, enabled, {', '.join(PROFILE_FIELDS)} "
+                    "FROM user WHERE LOWER(username) = ?",
+                    (username.lower(),),
+                ).fetchone()
+            except apsw.SQLError:
+                # A database Gatekeeper has not migrated yet lacks the profile columns; the
+                # account itself still resolves, without them.
+                logger.warning("Gatekeeper user table has no profile columns; migrate Gatekeeper")
+                row = conn.execute(
+                    "SELECT username, email, fullname, enabled FROM user WHERE LOWER(username) = ?",
+                    (username.lower(),),
+                ).fetchone()
             if row is None:
                 return None
             groups = self.get_user_groups(str(row[0]))
+            profile = {
+                name: str(value or "") for name, value in zip(PROFILE_FIELDS, row[4:], strict=False)
+            }
             return User(
                 username=str(row[0]),
                 email=str(row[1]),
                 fullname=str(row[2]),
                 enabled=bool(row[3]),
                 groups=groups,
+                **profile,
             )
         finally:
             conn.close()

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS db_metadata (
     value TEXT NOT NULL
 );
 
-INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '5');
+INSERT OR IGNORE INTO db_metadata VALUES ('schema_version', '6');
 
 CREATE TABLE IF NOT EXISTS app_setting (
     key TEXT PRIMARY KEY,
@@ -32,7 +32,17 @@ CREATE TABLE IF NOT EXISTS user (
     department TEXT NOT NULL DEFAULT '',
     manager TEXT NOT NULL DEFAULT '',
     telephone_number TEXT NOT NULL DEFAULT '',
-    mobile_number TEXT NOT NULL DEFAULT ''
+    mobile_number TEXT NOT NULL DEFAULT '',
+    -- Directory profile from LDAP (displayName, physicalDeliveryOfficeName, l, st,
+    -- c, co, company, employeeType), refreshed with the fields above.
+    display_name TEXT NOT NULL DEFAULT '',
+    office TEXT NOT NULL DEFAULT '',
+    city TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL DEFAULT '',
+    country_code TEXT NOT NULL DEFAULT '',
+    country TEXT NOT NULL DEFAULT '',
+    company TEXT NOT NULL DEFAULT '',
+    employee_type TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_email ON user(email);

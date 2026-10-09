@@ -100,6 +100,62 @@
                {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
     </label>
 
+    <label for="display_name">
+        Display Name
+        <input type="text" id="display_name" name="display_name"
+               value="{{ user.display_name if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="office">
+        Office
+        <input type="text" id="office" name="office"
+               value="{{ user.office if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="city">
+        City
+        <input type="text" id="city" name="city"
+               value="{{ user.city if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="state">
+        State
+        <input type="text" id="state" name="state"
+               value="{{ user.state if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="country_code">
+        Country Code
+        <input type="text" id="country_code" name="country_code"
+               value="{{ user.country_code if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="country">
+        Country
+        <input type="text" id="country" name="country"
+               value="{{ user.country if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="company">
+        Company
+        <input type="text" id="company" name="company"
+               value="{{ user.company if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
+    <label for="employee_type">
+        Employee Type
+        <input type="text" id="employee_type" name="employee_type"
+               value="{{ user.employee_type if user else '' }}"
+               {{ 'readonly aria-disabled="true"' if ldap_ro else '' }}>
+    </label>
+
     <fieldset>
         <label>
             <input type="checkbox" name="enabled" role="switch"

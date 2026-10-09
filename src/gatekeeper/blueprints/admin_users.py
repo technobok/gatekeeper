@@ -18,7 +18,7 @@ from werkzeug.wrappers import Response
 from gatekeeper.blueprints.auth import admin_required
 from gatekeeper.db import get_db
 from gatekeeper.models.group import Group
-from gatekeeper.models.user import User
+from gatekeeper.models.user import PROFILE_FIELDS, User
 from gatekeeper.services.export import write_xlsx
 
 bp = Blueprint("admin_users", __name__, url_prefix="/admin/users")
@@ -144,7 +144,8 @@ def export() -> Response:
     """Export all users as XLSX."""
     db = get_db()
     rows = db.execute(
-        "SELECT username, email, fullname, enabled, created_at, updated_at FROM user ORDER BY username"
+        "SELECT username, email, fullname, enabled, created_at, updated_at, upn, "
+        f"{', '.join(PROFILE_FIELDS)} FROM user ORDER BY username"
     ).fetchall()
 
     # Build username -> groups mapping
@@ -155,7 +156,17 @@ def export() -> Response:
     for gr in group_rows:
         all_groups.setdefault(str(gr[0]), []).append(str(gr[1]))
 
-    headers = ["Username", "Email", "Full Name", "Groups", "Enabled", "Created", "Updated"]
+    headers = [
+        "Username",
+        "Email",
+        "Full Name",
+        "Groups",
+        "Enabled",
+        "Created",
+        "Updated",
+        "UPN",
+        *(field.replace("_", " ").title() for field in PROFILE_FIELDS),
+    ]
     data = [
         [
             r[0],
@@ -165,6 +176,7 @@ def export() -> Response:
             "Yes" if r[3] else "No",
             r[4],
             r[5],
+            *r[6:],
         ]
         for r in rows
     ]
@@ -300,13 +312,7 @@ def ldap_provision() -> Response:
         fullname=ldap_user.fullname,
         enabled=True,
         ldap_domain=ldap_domain,
-        given_name=ldap_user.given_name,
-        mail_nickname=ldap_user.mail_nickname,
-        title=ldap_user.title,
-        department=ldap_user.department,
-        manager=ldap_user.manager,
-        telephone_number=ldap_user.telephone_number,
-        mobile_number=ldap_user.mobile_number,
+        **ldap_user.profile_fields(),
     )
 
     # Add to standard group
@@ -392,26 +398,8 @@ def edit_user(username: str) -> Response:
         user.update(enabled=enabled)
     else:
         # For non-LDAP users, update all editable fields
-        given_name = request.form.get("given_name", "").strip()
-        mail_nickname = request.form.get("mail_nickname", "").strip()
-        title = request.form.get("title", "").strip()
-        department = request.form.get("department", "").strip()
-        manager = request.form.get("manager", "").strip()
-        telephone_number = request.form.get("telephone_number", "").strip()
-        mobile_number = request.form.get("mobile_number", "").strip()
-
-        user.update(
-            email=email or None,
-            fullname=fullname,
-            enabled=enabled,
-            given_name=given_name,
-            mail_nickname=mail_nickname,
-            title=title,
-            department=department,
-            manager=manager,
-            telephone_number=telephone_number,
-            mobile_number=mobile_number,
-        )
+        profile = {field: request.form.get(field, "").strip() for field in PROFILE_FIELDS}
+        user.update(email=email or None, fullname=fullname, enabled=enabled, **profile)
 
     # Applied separately, and outside the LDAP-readonly branch: clearing a UPN is
     # how an operator releases a value so another account can claim it, and that
@@ -640,13 +628,7 @@ def _refresh_ldap_user(user: User) -> tuple[bool, str]:
         ldap_domain=domain,
         email=ldap_user.email,
         fullname=ldap_user.fullname,
-        given_name=ldap_user.given_name,
-        mail_nickname=ldap_user.mail_nickname,
-        title=ldap_user.title,
-        department=ldap_user.department,
-        manager=ldap_user.manager,
-        telephone_number=ldap_user.telephone_number,
-        mobile_number=ldap_user.mobile_number,
+        **ldap_user.profile_fields(),
     )
 
     # The UPN is updated separately so a clash cannot take the rest of the

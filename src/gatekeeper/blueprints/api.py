@@ -93,6 +93,14 @@ def _user_to_dict(user: User) -> dict:
         "manager": user.manager,
         "telephone_number": user.telephone_number,
         "mobile_number": user.mobile_number,
+        "display_name": user.display_name,
+        "office": user.office,
+        "city": user.city,
+        "state": user.state,
+        "country_code": user.country_code,
+        "country": user.country,
+        "company": user.company,
+        "employee_type": user.employee_type,
         "is_ldap": user.is_ldap,
     }
 

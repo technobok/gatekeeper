@@ -3,14 +3,43 @@
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import TypedDict
 
 from gatekeeper.db import get_db, transaction
 
 _USER_COLUMNS = (
     "username, email, fullname, enabled, login_salt, created_at, updated_at, "
     "ldap_domain, given_name, mail_nickname, title, department, manager, "
-    "telephone_number, mobile_number, upn"
+    "telephone_number, mobile_number, upn, display_name, office, city, state, country_code, "
+    "country, company, employee_type"
 )
+
+
+class UserProfile(TypedDict):
+    """The directory profile: what LDAP supplies about a person besides email and full name.
+
+    LDAP provisioning and refresh write every one of these; for a non-LDAP account they are
+    edited by hand.
+    """
+
+    given_name: str
+    mail_nickname: str
+    title: str
+    department: str
+    manager: str
+    telephone_number: str
+    mobile_number: str
+    display_name: str
+    office: str
+    city: str
+    state: str
+    country_code: str
+    country: str
+    company: str
+    employee_type: str
+
+
+PROFILE_FIELDS = tuple(UserProfile.__annotations__)
 
 
 @dataclass
@@ -31,6 +60,14 @@ class User:
     telephone_number: str = ""
     mobile_number: str = ""
     upn: str = ""
+    display_name: str = ""
+    office: str = ""
+    city: str = ""
+    state: str = ""
+    country_code: str = ""
+    country: str = ""
+    company: str = ""
+    employee_type: str = ""
 
     @property
     def is_ldap(self) -> bool:
@@ -55,6 +92,14 @@ class User:
             telephone_number=row[13] if len(row) > 13 else "",
             mobile_number=row[14] if len(row) > 14 else "",
             upn=row[15] if len(row) > 15 else "",
+            display_name=row[16] if len(row) > 16 else "",
+            office=row[17] if len(row) > 17 else "",
+            city=row[18] if len(row) > 18 else "",
+            state=row[19] if len(row) > 19 else "",
+            country_code=row[20] if len(row) > 20 else "",
+            country=row[21] if len(row) > 21 else "",
+            company=row[22] if len(row) > 22 else "",
+            employee_type=row[23] if len(row) > 23 else "",
         )
 
     @staticmethod
@@ -104,6 +149,14 @@ class User:
         telephone_number: str = "",
         mobile_number: str = "",
         upn: str = "",
+        display_name: str = "",
+        office: str = "",
+        city: str = "",
+        state: str = "",
+        country_code: str = "",
+        country: str = "",
+        company: str = "",
+        employee_type: str = "",
     ) -> User:
         """Create a new user. Username is stored lowercase."""
         username = username.lower()
@@ -112,10 +165,8 @@ class User:
 
         with transaction() as cursor:
             cursor.execute(
-                "INSERT INTO user (username, email, fullname, enabled, login_salt, "
-                "created_at, updated_at, ldap_domain, given_name, mail_nickname, "
-                "title, department, manager, telephone_number, mobile_number, upn) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                f"INSERT INTO user ({_USER_COLUMNS}) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     username,
                     email,
@@ -133,6 +184,14 @@ class User:
                     telephone_number,
                     mobile_number,
                     upn,
+                    display_name,
+                    office,
+                    city,
+                    state,
+                    country_code,
+                    country,
+                    company,
+                    employee_type,
                 ),
             )
 
@@ -153,6 +212,14 @@ class User:
             telephone_number=telephone_number,
             mobile_number=mobile_number,
             upn=upn,
+            display_name=display_name,
+            office=office,
+            city=city,
+            state=state,
+            country_code=country_code,
+            country=country,
+            company=company,
+            employee_type=employee_type,
         )
 
     def update(
@@ -169,6 +236,14 @@ class User:
         telephone_number: str | None = None,
         mobile_number: str | None = None,
         upn: str | None = None,
+        display_name: str | None = None,
+        office: str | None = None,
+        city: str | None = None,
+        state: str | None = None,
+        country_code: str | None = None,
+        country: str | None = None,
+        company: str | None = None,
+        employee_type: str | None = None,
     ) -> None:
         """Update user fields."""
         now = datetime.now(UTC).isoformat()
@@ -190,17 +265,7 @@ class User:
             params.append(int(enabled))
             self.enabled = enabled
 
-        for field in (
-            "ldap_domain",
-            "given_name",
-            "mail_nickname",
-            "title",
-            "department",
-            "manager",
-            "telephone_number",
-            "mobile_number",
-            "upn",
-        ):
+        for field in ("ldap_domain", *PROFILE_FIELDS, "upn"):
             value = locals()[field]
             if value is not None:
                 updates.append(f"{field} = ?")

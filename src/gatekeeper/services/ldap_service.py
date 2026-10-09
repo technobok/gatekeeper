@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 from flask import current_app
 
+from gatekeeper.models.user import UserProfile
+
 
 @dataclass
 class LdapUser:
@@ -18,11 +20,39 @@ class LdapUser:
     telephone_number: str = ""
     mobile_number: str = ""
     upn: str = ""
+    display_name: str = ""
+    office: str = ""
+    city: str = ""
+    state: str = ""
+    country_code: str = ""
+    country: str = ""
+    company: str = ""
+    employee_type: str = ""
     groups: list[str] | None = None
 
     def __post_init__(self) -> None:
         if self.groups is None:
             self.groups = []
+
+    def profile_fields(self) -> UserProfile:
+        """The directory profile as ``User.create``/``User.update`` keyword arguments."""
+        return UserProfile(
+            given_name=self.given_name,
+            mail_nickname=self.mail_nickname,
+            title=self.title,
+            department=self.department,
+            manager=self.manager,
+            telephone_number=self.telephone_number,
+            mobile_number=self.mobile_number,
+            display_name=self.display_name,
+            office=self.office,
+            city=self.city,
+            state=self.state,
+            country_code=self.country_code,
+            country=self.country,
+            company=self.company,
+            employee_type=self.employee_type,
+        )
 
 
 def is_ldap_available() -> bool:
@@ -107,7 +137,9 @@ def lookup_by_username(domain: str, username: str) -> LdapUser | None:
 
         current_app.logger.debug("LDAP bound successfully, searching...")
 
-        fetch_attrs = [email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS
+        fetch_attrs = list(
+            dict.fromkeys([email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS)
+        )
 
         results = conn.search_s(
             base_dn,
@@ -179,7 +211,9 @@ def lookup_by_email(email: str) -> LdapUser | None:
             else:
                 conn.simple_bind_s("", "")
 
-            fetch_attrs = [email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS
+            fetch_attrs = list(
+                dict.fromkeys([email_attr, fullname_attr, username_attr] + _EXTENDED_ATTRS)
+            )
 
             results = conn.search_s(
                 base_dn,
@@ -220,6 +254,15 @@ _EXTENDED_ATTRS = [
     # one indexed lookup instead of reasoning from an email address.
     "userPrincipalName",
     "memberOf",
+    # Directory profile: office, location and employment details.
+    "displayName",
+    "physicalDeliveryOfficeName",
+    "l",
+    "st",
+    "c",
+    "co",
+    "company",
+    "employeeType",
 ]
 
 
@@ -275,6 +318,14 @@ def _build_ldap_user(domain: str, sam: str, email: str, fullname: str, attrs: di
         telephone_number=_get_attr(attrs, "telephoneNumber") or "",
         mobile_number=_get_attr(attrs, "mobile") or "",
         upn=_get_attr(attrs, "userPrincipalName") or "",
+        display_name=_get_attr(attrs, "displayName") or "",
+        office=_get_attr(attrs, "physicalDeliveryOfficeName") or "",
+        city=_get_attr(attrs, "l") or "",
+        state=_get_attr(attrs, "st") or "",
+        country_code=_get_attr(attrs, "c") or "",
+        country=_get_attr(attrs, "co") or "",
+        company=_get_attr(attrs, "company") or "",
+        employee_type=_get_attr(attrs, "employeeType") or "",
         groups=group_cns,
     )
 

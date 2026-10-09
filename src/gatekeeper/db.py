@@ -177,7 +177,7 @@ def get_schema_version() -> int:
         return 0
 
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def migrate_db() -> None:
@@ -197,6 +197,9 @@ def migrate_db() -> None:
 
     if version < 5:
         _migrate_v4_to_v5()
+
+    if version < 6:
+        _migrate_v5_to_v6()
 
 
 def _migrate_v1_to_v2() -> None:
@@ -227,6 +230,26 @@ _USER_COLUMNS_V5 = (
 def _count_users(conn: apsw.Connection) -> int:
     row = conn.execute("SELECT COUNT(*) FROM user").fetchone()
     return int(row[0]) if row else 0
+
+
+def _migrate_v5_to_v6() -> None:
+    """Add the directory profile columns (office, location, company...) and bump schema to 6.
+
+    They arrive empty; an LDAP refresh-all backfills them for existing accounts.
+    """
+    with transaction() as cursor:
+        for column in (
+            "display_name",
+            "office",
+            "city",
+            "state",
+            "country_code",
+            "country",
+            "company",
+            "employee_type",
+        ):
+            cursor.execute(f"ALTER TABLE user ADD COLUMN {column} TEXT NOT NULL DEFAULT '';")
+        cursor.execute("UPDATE db_metadata SET value = '6' WHERE key = 'schema_version';")
 
 
 def _migrate_v4_to_v5() -> None:

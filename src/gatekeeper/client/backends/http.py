@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-from gatekeeper.client.models import Group, User
+from gatekeeper.client.models import PROFILE_FIELDS, Group, User
 
 logger = logging.getLogger("gatekeeper.client.http")
 
@@ -51,6 +51,7 @@ class HttpBackend:
                     fullname=data.get("fullname", ""),
                     enabled=data.get("enabled", True),
                     groups=groups,
+                    **{name: data.get(name) or "" for name in PROFILE_FIELDS},
                 )
         except httpx.ConnectError as e:
             logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
