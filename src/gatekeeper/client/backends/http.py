@@ -243,6 +243,7 @@ class HttpBackend:
                     fullname=data.get("fullname", ""),
                     enabled=data.get("enabled", True),
                     groups=data.get("groups"),
+                    **{name: data.get(name) or "" for name in PROFILE_FIELDS},
                 )
         except httpx.ConnectError as e:
             logger.error(f"Failed to connect to Gatekeeper at {self.server_url}: {e}")
